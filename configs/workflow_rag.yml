@@ -1,0 +1,19 @@
+retrive1:
+    num_requests: 5
+    type: Retriever
+
+generate1:
+    model: models/Llama-3.2-3B-Instruct-GGUF/Llama-3.2-3B-Instruct-f16.gguf
+    num_requests: 1
+    device: gpu
+    type: Chatbot
+    # mps: 33
+
+workflows:
+    retriever:
+        uses: retrive1
+
+    generate:
+        uses: generate1 
+        depends_on:
+            - retriever

@@ -1,0 +1,7 @@
+retrive1:
+    num_requests: 5
+    type: Retriever
+
+workflows:
+    retriever:
+        uses: retrive1
