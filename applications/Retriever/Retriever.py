@@ -16,10 +16,29 @@ class LocalFaissRetriever:
       passages = retriever(query, k=5)
     returns list[dict]: {"doc_id", "score", "text"}
     """
-    def __init__(self, index_path: str, docs_path: str, model_name: str, default_k: int = 5):
+    def __init__(
+        self,
+        index_path: str,
+        docs_path: str,
+        model_name: str,
+        default_k: int = 5,
+        device: str = "cpu",
+    ):
         self.index = faiss.read_index(index_path)
-        self.model = SentenceTransformer(model_name)
+        self.device = device.lower()
+        model_device = "cuda" if self.device in {"gpu", "cuda", "cuda:0"} else "cpu"
+        self.model = SentenceTransformer(model_name, device=model_device)
         self.default_k = default_k
+
+        if self.device in {"gpu", "cuda", "cuda:0"}:
+            try:
+                if faiss.get_num_gpus() > 0:
+                    gpu_res = faiss.StandardGpuResources()
+                    self.index = faiss.index_cpu_to_gpu(gpu_res, 0, self.index)
+                else:
+                    print("No FAISS GPU detected; using CPU index.")
+            except Exception as exc:
+                print(f"FAISS GPU init failed; using CPU index. Error: {exc}")
 
         # Simple docstore in memory. For huge corpora, switch to sqlite or mmap.
         self.docs = {}
@@ -55,12 +74,14 @@ class Retriever(Application):
         docs_path = kwargs.get("docs_path", self.config["docs_path"])
         model_name = kwargs.get("model_name", self.config["model_name"])
         default_k = kwargs.get("default_k", self.config["default_k"])
+        device = kwargs.get("device", self.config["device"])
 
         self.retriever = LocalFaissRetriever(
             index_path=index_path,
             docs_path=docs_path,
             model_name=model_name,
             default_k=default_k,
+            device=device,
         )
         return {"status": "setup_complete", "config": self.config}
 
@@ -85,6 +106,7 @@ class Retriever(Application):
             "docs_path": f"{repo_dir}/applications/Retriever/rag_index/docs.jsonl",
             "model_name": "sentence-transformers/all-MiniLM-L6-v2",
             "default_k": 5,
+            "device": "cpu",
             "query": "What is retrieval augmented generation?",
         }
 
