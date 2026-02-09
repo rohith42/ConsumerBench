@@ -1,0 +1,49 @@
+tool1:
+    num_requests: 3
+    type: DspyTool
+    tool_string: applications.DspyTool.example_tools.add
+    tool_kwargs:
+        a: 2
+        b: 3
+
+tool2:
+    num_requests: 2
+    type: DspyTool
+    tool_string: applications.DspyTool.example_tools.concat
+    tool_kwargs:
+        a: hello
+        b: world
+        sep: " "
+
+tool3:
+    num_requests: 1
+    type: DspyTool
+    tool_string: applications.DspyTool.example_tools.EchoTool
+    tool_args:
+        - "echo this"
+
+tool4:
+    num_requests: 1
+    type: DspyTool
+    tool_string: applications.DspyTool.example_tools.UpperTool
+    tool_args:
+        - "make me loud"
+
+tool5:
+    num_requests: 1
+    type: DspyTool
+    tool_string: applications.DspyTool.example_tools.passthrough
+    tool_args:
+        - {"k": "v", "n": 42}
+
+workflows:
+    dspy_tool:
+        uses: tool1
+    dspy_tool_concat:
+        uses: tool2
+    dspy_tool_echo:
+        uses: tool3
+    dspy_tool_upper:
+        uses: tool4
+    dspy_tool_passthrough:
+        uses: tool5

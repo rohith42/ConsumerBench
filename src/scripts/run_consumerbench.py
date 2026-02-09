@@ -9,8 +9,10 @@ from applications.SleepApplication.SleepApplication import SleepApplication
 from applications.ImageGen.ImageGen import ImageGen
 from applications.DeepResearch.DeepResearch import DeepResearch
 from applications.Chatbot.Chatbot import Chatbot
+from applications.DspyTool.DspyTool import DspyTool
 from applications.LiveCaptions.LiveCaptions import LiveCaptions
 from applications.MCPServer.MCPServer import MCPServer
+from applications.Retriever.Retriever import Retriever
 from src.workflow import Workflow
 import src.globals as globals
 
@@ -41,6 +43,8 @@ def main(args):
     chatbot = Chatbot()
     liveCaptions = LiveCaptions()
     mcpServer = MCPServer(mcp_trace_file=mcp_trace_file, config_file=config_file)
+    retriever = Retriever()
+    dspyTool = DspyTool()
     
     # Create workflow from YAML
     workflow = Workflow(config_file)
@@ -52,7 +56,9 @@ def main(args):
     workflow.register_application("Chatbot", chatbot)
     workflow.register_application("LiveCaptions", liveCaptions)
     workflow.register_application("MCPServer", mcpServer)
-
+    workflow.register_application("Retriever", retriever)
+    workflow.register_application("DspyTool", dspyTool)
+    
     print("Registered applications:")
     for app_name, app in workflow.applications.items():
         print(f"  - {app_name}: {type(app).__name__}")
