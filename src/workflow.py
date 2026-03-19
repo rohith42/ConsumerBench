@@ -1,4 +1,5 @@
 from collections import deque
+import copy
 import yaml
 import sys
 import os
@@ -43,6 +44,7 @@ class Workflow:
         self.yaml_file = yaml_file
         self.mcp_trace_json = mcp_trace_json
         self.workflow_config = self.load_yaml()
+        self.scheduler = self.workflow_config.get("scheduler", None)
         self.tasks_map_queue = {}
         self.workflow_unit_map = {}
         self.applications = {}
@@ -60,7 +62,7 @@ class Workflow:
     def load_workflow_unit_config(self):
         """Load workflow unit configuration from YAML"""
         for k, v in self.workflow_config.items():
-            if k == "workflows":
+            if k in {"workflows", "scheduler", "priority"}:
                 continue
 
             app_type = v["type"]
@@ -68,6 +70,8 @@ class Workflow:
             default_config = application.get_default_config()
             node_config = {k: val for k, val in v.items() if k != "type"}
             node_config = {**default_config, **node_config}
+            if self.scheduler and not node_config.get("scheduler"):
+                node_config["scheduler"] = self.scheduler
             
             # Store the configuration
             self.workflow_unit_map[k] = {
@@ -111,8 +115,10 @@ class Workflow:
         """Generate a task group using an Application instance"""
         task = Task(task_id=task_id, task_type="ephemeral", app_type=app_type)
         
-        # Get the registered application
-        application = self.applications[app_type]
+        # Use an isolated application instance per workflow unit. Reusing the same
+        # object across concurrent units can race on mutable runtime state
+        # (e.g., loaded model/tokenizer/pipeline and prompt cursors).
+        application = copy.deepcopy(self.applications[app_type])
         
         # Update application config with YAML config
         application.add_config(node_config)

@@ -7,14 +7,17 @@ sys.path.append(repo_dir)
 
 from applications.SleepApplication.SleepApplication import SleepApplication
 from applications.ImageGen.ImageGen import ImageGen
+from applications.ImageGenServer.ImageGenServer import ImageGenServer
 from applications.DeepResearch.DeepResearch import DeepResearch
 from applications.Chatbot.Chatbot import Chatbot
+from applications.ChatbotHF.ChatbotHF import ChatbotHF
 from applications.DspyTool.DspyTool import DspyTool
 from applications.LiveCaptions.LiveCaptions import LiveCaptions
 from applications.MCPServer.MCPServer import MCPServer
 from applications.Retriever.Retriever import Retriever
 from src.workflow import Workflow
 import src.globals as globals
+from src.tally import ensure_tally_runtime, release_tally_runtime
 
 from monitors.memory_util import GpuMemoryMonitor
 
@@ -39,8 +42,10 @@ def main(args):
     # TODO: Yile, fix application type and instance tied up
     sleepApplication1 = SleepApplication()
     imageGen = ImageGen()
+    imageGenServer = ImageGenServer()
     deepResearch = DeepResearch()
     chatbot = Chatbot()
+    chatbotHF = ChatbotHF()
     liveCaptions = LiveCaptions()
     mcpServer = MCPServer(mcp_trace_file=mcp_trace_file, config_file=config_file)
     retriever = Retriever()
@@ -52,8 +57,10 @@ def main(args):
     # Register applications
     workflow.register_application("SleepApplication", sleepApplication1)
     workflow.register_application("ImageGen", imageGen)
+    workflow.register_application("ImageGenServer", imageGenServer)
     workflow.register_application("DeepResearch", deepResearch)
     workflow.register_application("Chatbot", chatbot)
+    workflow.register_application("ChatbotHF", chatbotHF)
     workflow.register_application("LiveCaptions", liveCaptions)
     workflow.register_application("MCPServer", mcpServer)
     workflow.register_application("Retriever", retriever)
@@ -98,18 +105,27 @@ def main(args):
     monitor_thread.daemon = True
     monitor_thread.start()
 
-    # Run the benchmark
-    print("\n=== Running Benchmark ===")
-    total_time = bm.run_concurrent()
-    print(f"Total execution time: {total_time:.4f} seconds")
-    
-    # Display results
-    print("\n=== Results ===")
-    bm.display_results()
+    tally_scheduler = workflow.scheduler.lower() if isinstance(workflow.scheduler, str) else workflow.scheduler
+    if tally_scheduler in {"tally", "tgs", "naive"}:
+        print(f"Pre-warming tally runtime for scheduler={tally_scheduler} before benchmark start")
+        ensure_tally_runtime(tally_scheduler, repo_dir)
 
-    # Stop GPU memory monitoring
-    gpu_monitor.running = False
-    monitor_thread.join()
+    # Run the benchmark
+    try:
+        print("\n=== Running Benchmark ===")
+        total_time = bm.run_concurrent()
+        print(f"Total execution time: {total_time:.4f} seconds")
+        
+        # Display results
+        print("\n=== Results ===")
+        bm.display_results()
+    finally:
+        if tally_scheduler in {"tally", "tgs", "naive"}:
+            release_tally_runtime(tally_scheduler, repo_dir)
+
+        # Stop GPU memory monitoring
+        gpu_monitor.running = False
+        monitor_thread.join()
 
 if __name__ == "__main__":
     main(sys.argv[1:]) 
