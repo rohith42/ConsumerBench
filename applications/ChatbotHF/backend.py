@@ -114,7 +114,7 @@ class ChatbotHFServer:
             "status": "chatbot_complete",
             "text": text,
             "ttft": (first_token_time - start_time) if first_token_time is not None else None,
-            "tpot": ((end_time - start_time) / token_count) if token_count > 0 else None,
+            "tpot": ((end_time - first_token_time) / token_count) if token_count > 0 else None,
             "itl": ((end_time - start_time) / token_count) if token_count > 0 else None,
             "total_time": end_time - start_time,
             "token_count": token_count,

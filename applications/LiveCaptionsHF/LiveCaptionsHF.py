@@ -1,13 +1,12 @@
 import json
 import os
 import signal
+import subprocess
 import sys
 import time
-import subprocess
 import urllib.request
 from typing import Any, Dict
 
-from datasets import load_dataset
 import src.globals as globals
 
 repo_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -15,10 +14,10 @@ sys.path.append(repo_dir)
 
 from applications.application import Application
 
-class ChatbotHF(Application):
+
+class LiveCaptionsHF(Application):
     def __init__(self):
         super().__init__()
-        self.chatbot_prompts = []
         self.server_process = None
         self.server_stdout = None
         self.server_stderr = None
@@ -31,8 +30,7 @@ class ChatbotHF(Application):
 
         try:
             if self.server_process.poll() is None:
-                # Kill the entire process group because tally wrapping may add
-                # intermediate shell processes.
+                # Kill the process group because tally wrapping may spawn shell children.
                 os.killpg(self.server_process.pid, signal.SIGTERM)
                 self.server_process.wait(timeout=10)
         except ProcessLookupError:
@@ -55,7 +53,7 @@ class ChatbotHF(Application):
         except Exception:
             return ""
 
-    def _wait_server_ready(self, timeout_secs=120):
+    def _wait_server_ready(self, timeout_secs=180):
         if self.api_port is None:
             raise RuntimeError("API port is not set")
 
@@ -64,10 +62,10 @@ class ChatbotHF(Application):
         while time.time() < deadline:
             if self.server_process and self.server_process.poll() is not None:
                 stderr_tail = self._read_log_tail(
-                    os.path.join(globals.get_results_dir(), f"chatbothf_server_{self.api_port}_stderr.log")
+                    os.path.join(globals.get_results_dir(), f"livecaptionshf_server_{self.api_port}_stderr.log")
                 )
                 raise RuntimeError(
-                    f"ChatbotHF server process exited early on port {self.api_port} "
+                    f"LiveCaptionsHF server exited early on port {self.api_port} "
                     f"(rc={self.server_process.returncode}).\n"
                     f"stderr tail:\n{stderr_tail}"
                 )
@@ -79,14 +77,14 @@ class ChatbotHF(Application):
                 time.sleep(1)
 
         stderr_tail = self._read_log_tail(
-            os.path.join(globals.get_results_dir(), f"chatbothf_server_{self.api_port}_stderr.log")
+            os.path.join(globals.get_results_dir(), f"livecaptionshf_server_{self.api_port}_stderr.log")
         )
         raise TimeoutError(
-            f"ChatbotHF server did not become healthy on port {self.api_port}.\n"
+            f"LiveCaptionsHF server did not become healthy on port {self.api_port}.\n"
             f"stderr tail:\n{stderr_tail}"
         )
 
-    def _post_json(self, url, payload, timeout=120):
+    def _post_json(self, url, payload, timeout=180):
         body = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(url, data=body, method="POST")
         req.add_header("Content-Type", "application/json")
@@ -94,13 +92,23 @@ class ChatbotHF(Application):
             data = resp.read().decode("utf-8")
         return json.loads(data)
 
+    def _resolve_audio_path(self, audio_file):
+        if os.path.isabs(audio_file):
+            return audio_file
+
+        repo_relative = os.path.join(repo_dir, audio_file)
+        if os.path.exists(repo_relative):
+            return repo_relative
+
+        return os.path.abspath(audio_file)
+
     def run_setup(self, *args, **kwargs):
-        print("Chatbot (HuggingFace) setup")
+        print("LiveCaptionsHF setup")
 
         model_id = kwargs.get("model", self.get_default_config()["model"])
         device = kwargs.get("device", self.get_default_config()["device"])
-        api_port = int(kwargs.get("api_port", self.get_default_config()["api_port"]))
         mps = int(kwargs.get("mps", self.get_default_config()["mps"]))
+        api_port = int(kwargs.get("api_port", self.get_default_config()["api_port"]))
         torch_dtype_name = "float16"
         trust_remote_code = False
         hf_token = os.environ.get("HF_TOKEN")
@@ -109,18 +117,12 @@ class ChatbotHF(Application):
 
         scheduler = scheduler.lower() if isinstance(scheduler, str) else None
         if scheduler not in {None, "naive", "tally", "tgs"}:
-            raise ValueError(f"Unsupported scheduler for ChatbotHF: {scheduler}")
-
-        if isinstance(model_id, str) and model_id.lower().endswith(".gguf"):
-            raise ValueError(
-                "ChatbotHF expects a Hugging Face model id or directory, not a GGUF file. "
-                "Use Chatbot for GGUF/llama.cpp backends."
-            )
+            raise ValueError(f"Unsupported scheduler for LiveCaptionsHF: {scheduler}")
 
         self._setup_scheduler = scheduler
         self.api_port = api_port
 
-        server_script = os.path.join(repo_dir, "applications", "ChatbotHF", "backend.py")
+        server_script = os.path.join(repo_dir, "applications", "LiveCaptionsHF", "backend.py")
         server_cmd = [
             sys.executable,
             "-u",
@@ -136,6 +138,7 @@ class ChatbotHF(Application):
             "--torch-dtype",
             str(torch_dtype_name),
         ]
+
         if trust_remote_code:
             server_cmd.append("--trust-remote-code")
         if hf_token:
@@ -148,8 +151,8 @@ class ChatbotHF(Application):
 
         results_dir = globals.get_results_dir()
         os.makedirs(results_dir, exist_ok=True)
-        self.server_stdout = open(os.path.join(results_dir, f"chatbothf_server_{api_port}_stdout.log"), "w")
-        self.server_stderr = open(os.path.join(results_dir, f"chatbothf_server_{api_port}_stderr.log"), "w")
+        self.server_stdout = open(os.path.join(results_dir, f"livecaptionshf_server_{api_port}_stdout.log"), "w")
+        self.server_stderr = open(os.path.join(results_dir, f"livecaptionshf_server_{api_port}_stderr.log"), "w")
 
         self.server_process = subprocess.Popen(
             launch_cmd,
@@ -161,19 +164,19 @@ class ChatbotHF(Application):
         )
 
         try:
-            self._wait_server_ready(timeout_secs=360)
+            self._wait_server_ready(timeout_secs=480)
         except Exception:
             self._stop_server_process()
 
-            stderr_path = os.path.join(results_dir, f"chatbothf_server_{api_port}_stderr.log")
+            stderr_path = os.path.join(results_dir, f"livecaptionshf_server_{api_port}_stderr.log")
             stderr_tail = self._read_log_tail(stderr_path)
             raise RuntimeError(
-                f"ChatbotHF setup failed on port {api_port}. "
+                f"LiveCaptionsHF setup failed on port {api_port}. "
                 f"stderr log: {stderr_path}\n"
                 f"stderr tail:\n{stderr_tail}"
             )
 
-        print("Chatbot (HuggingFace) setup complete")
+        print("LiveCaptionsHF setup complete")
         return {
             "status": "setup_complete",
             "config": self.config,
@@ -184,7 +187,7 @@ class ChatbotHF(Application):
         }
 
     def run_cleanup(self, *args, **kwargs):
-        print("Chatbot (HuggingFace) cleanup")
+        print("LiveCaptionsHF cleanup")
 
         self._stop_server_process()
 
@@ -198,73 +201,106 @@ class ChatbotHF(Application):
         return {"status": "cleanup_complete"}
 
     def run_application(self, *args, **kwargs):
-        print("Chatbot (HuggingFace) application")
+        print("LiveCaptionsHF application")
 
         if self.server_process is None or self.server_process.poll() is not None:
             raise RuntimeError("Server is not running. Call run_setup before run_application.")
-        if not self.chatbot_prompts:
-            raise RuntimeError("No prompts available. Call load_dataset before run_application.")
 
-        chatbot_prompt = self.chatbot_prompts.pop(0)
-        max_new_tokens = 215
-        temperature = 0
-        top_p = 0.9
-        seed = 141293
+        audio_file = kwargs.get("client_command_file", self.get_default_config()["client_command_file"])
+        audio_file = self._resolve_audio_path(str(audio_file))
 
-        api_url = f"http://127.0.0.1:{self.api_port}/generate"
-        response = self._post_json(
-            api_url,
-            {
-                "prompt": chatbot_prompt,
-                "max_new_tokens": max_new_tokens,
-                "temperature": temperature,
-                "top_p": top_p,
-                "seed": seed,
-            },
-            timeout=300,
-        )
+        if not os.path.exists(audio_file):
+            raise FileNotFoundError(f"Audio file not found for LiveCaptionsHF: {audio_file}")
+
+        # Hardcoded LiveCaptionsHF behavior to keep config surface minimal.
+        language = "en"
+        task = "transcribe"
+        chunk_length_s = 30.0
+        batch_size = 8
+        use_realtime_chunking = True
+        chunk_seconds = 2.0
+        simulate_realtime = True
+        return_full_text = False
+        max_text_chars = 320
+        include_segments = False
+
+        if use_realtime_chunking:
+            api_url = f"http://127.0.0.1:{self.api_port}/transcribe_realtime"
+            response = self._post_json(
+                api_url,
+                {
+                    "audio_file": audio_file,
+                    "language": language,
+                    "task": task,
+                    "chunk_seconds": chunk_seconds,
+                    "simulate_realtime": simulate_realtime,
+                },
+                timeout=1800,
+            )
+        else:
+            api_url = f"http://127.0.0.1:{self.api_port}/transcribe"
+            response = self._post_json(
+                api_url,
+                {
+                    "audio_file": audio_file,
+                    "language": language,
+                    "task": task,
+                    "chunk_length_s": chunk_length_s,
+                    "batch_size": batch_size,
+                },
+                timeout=1800,
+            )
 
         if "error" in response:
-            raise RuntimeError(f"ChatbotHF server generation failed: {response['error']}")
+            raise RuntimeError(f"LiveCaptionsHF transcription failed: {response['error']}")
 
-        return {
-            "status": "chatbot_complete",
-            "ttft": response.get("ttft"),
-            "tpot": response.get("tpot"),
-            "itl": response.get("itl"),
-            "total time": response.get("total_time"),
-            "token_count": response.get("token_count"),
+        text_value = response.get("text")
+        if isinstance(text_value, str) and not return_full_text and max_text_chars > 0 and len(text_value) > max_text_chars:
+            text_value = text_value[:max_text_chars].rstrip() + "..."
+
+        result = {
+            "status": "live_captions_complete",
+            "text": text_value,
+            "audio_duration": response.get("audio_duration"),
+            "processing_time": response.get("processing_time"),
+            "total time": response.get("processing_time"),
+            "use_realtime_chunking": bool(use_realtime_chunking),
         }
 
-    def load_dataset(self, *args, **kwargs):
-        """Load the chatbot dataset"""
-        mcp_trace = kwargs.get("mcp_trace_json", None)
-        if mcp_trace is not None:
-            with open(mcp_trace, "r") as f:
-                trace_json = json.load(f)
-            for section_name, section_data in trace_json.items():
-                if section_name == "text_generate":
-                    for _, call_data in section_data.items():
-                        prompt = call_data.get("prompt", None)
-                        if prompt is not None:
-                            self.chatbot_prompts.append(prompt)
+        chunk_entries = response.get("chunks")
+        if isinstance(chunk_entries, list) and chunk_entries:
+            result["num_chunks"] = len(chunk_entries)
+            result["segment_count"] = sum(
+                len(chunk.get("segments", [])) for chunk in chunk_entries if isinstance(chunk, dict)
+            )
+            for chunk in chunk_entries:
+                idx = chunk.get("chunk_index")
+                ptime = chunk.get("processing_time")
+                if isinstance(idx, int) and ptime is not None:
+                    result[f"processing time_chunk_{idx}"] = ptime
+
+            if include_segments:
+                result["segments"] = chunk_entries
         else:
-            ds_textgen = load_dataset("lmsys/lmsys-chat-1m")
-            ds_textgen = ds_textgen["train"]
-            ds_textgen = ds_textgen.shuffle(seed=42)
-            ds_textgen = ds_textgen.select(range(0, 100))
-            for item in ds_textgen:
-                self.chatbot_prompts.append(item["conversation"][0]["content"])
+            result["processing time_chunk_0"] = response.get("processing_time")
+            segments = response.get("segments")
+            if isinstance(segments, list):
+                result["segment_count"] = len(segments)
+                if include_segments:
+                    result["segments"] = segments
+
+        return result
+
+    def load_dataset(self, *args, **kwargs):
+        """No dataset preload required; run_application uses configured wav paths."""
 
     def get_default_config(self) -> Dict[str, Any]:
         return {
-            "model": "meta-llama/Llama-3.2-3B-Instruct",
+            "model": "openai/whisper-large-v3-turbo",
             "device": "gpu",
-            "api_port": 8010,
             "mps": 100,
+            "api_port": 5010,
+            "client_command_file": "applications/LiveCaptions/whisper-earnings21/4320211_chunk_001.wav",
             "scheduler": None,
             "priority": 1,
         }
-
-
-

@@ -1,0 +1,11 @@
+imagegen1:
+    model: /home/tally-bench/ConsumerBench/models/stable-diffusion-3.5-medium-turbo
+    # server_model: CompVis/stable-diffusion-v1-4
+    num_requests: 10
+    device: gpu
+    type: ImageGenServer
+    api_port: 8082
+
+workflows:
+    generate_image1:
+        uses: imagegen1 

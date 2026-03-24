@@ -1,5 +1,6 @@
 import argparse
 import json
+import logging
 import os
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -15,24 +16,41 @@ class ImageGenServer:
         self.mps = mps
 
         if self.device == "cuda":
-            # Preserve current behavior from in-process ImageGen setup.
-            # This only has effect when CUDA MPS is enabled on the host.
-            os.environ["CUDA_MPS_ACTIVE_THREAD_PERCENTAGE"] = str(self.mps)
+            # Only set MPS percentage when explicitly enabled.
+            # For tally/tgs workflows we avoid overriding scheduler behavior.
+            if self.mps and int(self.mps) > 0:
+                os.environ["CUDA_MPS_ACTIVE_THREAD_PERCENTAGE"] = str(self.mps)
 
             self.pipeline = StableDiffusion3Pipeline.from_pretrained(
                 model,
                 text_encoder_3=None,
                 tokenizer_3=None,
                 torch_dtype=torch.float16,
-                low_cpu_mem_usage=False,
+                low_cpu_mem_usage=True,
             )
-            self.pipeline = self.pipeline.to("cuda")
+
+            # Reduce runtime VRAM spikes when co-running with other GPU apps.
+            if hasattr(self.pipeline, "enable_attention_slicing"):
+                self.pipeline.enable_attention_slicing("max")
+            if hasattr(self.pipeline, "enable_vae_slicing"):
+                self.pipeline.enable_vae_slicing()
+            if hasattr(self.pipeline, "enable_vae_tiling"):
+                self.pipeline.enable_vae_tiling()
+
+            # Prefer CPU offload for better coexistence with ChatbotHF.
+            # If accelerate/offload is unavailable, fall back to full CUDA placement.
+            try:
+                self.pipeline.enable_model_cpu_offload()
+                logging.info("ImageGenServer enabled model CPU offload")
+            except Exception as e:
+                logging.warning("Failed to enable model CPU offload, falling back to .to('cuda'): %s", e)
+                self.pipeline = self.pipeline.to("cuda")
         else:
             self.pipeline = StableDiffusion3Pipeline.from_pretrained(
                 model,
                 text_encoder_3=None,
                 tokenizer_3=None,
-                low_cpu_mem_usage=False,
+                low_cpu_mem_usage=True,
             )
             self.pipeline = self.pipeline.to("cpu")
 
@@ -50,15 +68,27 @@ class ImageGenServer:
                 torch.cuda.manual_seed_all(seed)
 
         start_time = time.time()
-        _ = self.pipeline(
-            prompt,
-            num_inference_steps=num_inference_steps,
-            guidance_scale=guidance_scale,
-        ).images[0]
+        with torch.inference_mode():
+            if self.device == "cuda":
+                with torch.autocast("cuda", dtype=torch.float16):
+                    _ = self.pipeline(
+                        prompt,
+                        num_inference_steps=num_inference_steps,
+                        guidance_scale=guidance_scale,
+                    ).images[0]
+            else:
+                _ = self.pipeline(
+                    prompt,
+                    num_inference_steps=num_inference_steps,
+                    guidance_scale=guidance_scale,
+                ).images[0]
 
         if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            torch.cuda.ipc_collect()
+            try:
+                torch.cuda.empty_cache()
+                torch.cuda.ipc_collect()
+            except Exception as e:
+                logging.warning("CUDA cache cleanup failed: %s", e)
 
         return {
             "status": "image_gen_complete",
@@ -114,6 +144,11 @@ def make_handler(app):
 
 
 def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="[imagegen_server] %(asctime)s %(levelname)s %(message)s",
+    )
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", type=str, default="127.0.0.1")
     parser.add_argument("--port", type=int, required=True)

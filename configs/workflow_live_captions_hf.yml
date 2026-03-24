@@ -1,0 +1,10 @@
+lv:
+    num_requests: 1
+    device: gpu
+    mps: 100
+    client_command_file: /home/tally-bench/ConsumerBench/applications/LiveCaptions/whisper-earnings21/4320211_chunk_002.wav
+    type: LiveCaptionsHF
+
+workflows:
+    start_captions:
+        uses: lv

@@ -1,6 +1,7 @@
 import sys
 import os
 import argparse
+import subprocess
 
 repo_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(repo_dir)
@@ -13,13 +14,58 @@ from applications.Chatbot.Chatbot import Chatbot
 from applications.ChatbotHF.ChatbotHF import ChatbotHF
 from applications.DspyTool.DspyTool import DspyTool
 from applications.LiveCaptions.LiveCaptions import LiveCaptions
+from applications.LiveCaptionsHF.LiveCaptionsHF import LiveCaptionsHF
 from applications.MCPServer.MCPServer import MCPServer
 from applications.Retriever.Retriever import Retriever
+from applications.RetrieverServer.RetrieverServer import RetrieverServer
 from src.workflow import Workflow
 import src.globals as globals
-from src.tally import ensure_tally_runtime, release_tally_runtime
+from src.tally import ensure_tally_runtime, release_tally_runtime, detect_tally_root
 
 from monitors.memory_util import GpuMemoryMonitor
+
+
+def _scheduler_from_config(config_file):
+    workflow = Workflow(config_file)
+    return workflow.scheduler.lower() if isinstance(workflow.scheduler, str) else workflow.scheduler
+
+
+def _relaunch_under_tally_client(config_file):
+    if os.environ.get("CONSUMERBENCH_TALLY_CLIENT_WRAPPED") == "1":
+        return False
+
+    scheduler = _scheduler_from_config(config_file)
+    if scheduler not in {"tally", "tgs"}:
+        return False
+
+    print(f"Pre-warming tally runtime for scheduler={scheduler} before benchmark start")
+    ensure_tally_runtime(scheduler, repo_dir)
+
+    tally_root = detect_tally_root(repo_dir)
+    start_client_script = os.path.join(tally_root, "scripts", "start_client.sh")
+    if not os.path.exists(start_client_script):
+        raise FileNotFoundError(f"Missing start_client.sh at {start_client_script}")
+
+    env = os.environ.copy()
+    env["CONSUMERBENCH_TALLY_CLIENT_WRAPPED"] = "1"
+    env["CONSUMERBENCH_TALLY_RUNTIME_MANAGED"] = "1"
+    env.setdefault("PRIORITY", "1")
+
+    relaunch_cmd = [
+        "bash",
+        start_client_script,
+        sys.executable,
+        os.path.abspath(__file__),
+    ] + sys.argv[1:]
+    print("Relaunching run_consumerbench.py under a single Tally client context")
+    try:
+        rc = subprocess.run(relaunch_cmd, env=env).returncode
+    finally:
+        release_tally_runtime(scheduler, repo_dir)
+
+    if rc != 0:
+        raise RuntimeError(f"Benchmark run under Tally client failed with exit code {rc}")
+    return True
 
 def main(args):
     """User workflow with ConsumerBench"""
@@ -30,13 +76,19 @@ def main(args):
     args = parser.parse_args()    
     config_file = args.config
     mcp_trace_file = args.mcp_trace
+
+    # Initialize global timing/results before any tally setup so tally logs are
+    # written into the configured benchmark results directory.
+    globals.set_start_time()
+    globals.set_results_dir(f"{args.results}")
+    os.environ["CONSUMERBENCH_RESULTS_DIR"] = f"{args.results}"
+
+    if _relaunch_under_tally_client(config_file):
+        return
+
     print(f"=== Testing User Workflow with ConsumerBench ===\n")
     print(f"Using config file: {config_file}")
 
-    # Initialize globals
-    globals.set_start_time()
-    globals.set_results_dir(f"{args.results}")
-        
     # Create application instances
     
     # TODO: Yile, fix application type and instance tied up
@@ -47,8 +99,10 @@ def main(args):
     chatbot = Chatbot()
     chatbotHF = ChatbotHF()
     liveCaptions = LiveCaptions()
+    liveCaptionsHF = LiveCaptionsHF()
     mcpServer = MCPServer(mcp_trace_file=mcp_trace_file, config_file=config_file)
     retriever = Retriever()
+    retrieverServer = RetrieverServer()
     dspyTool = DspyTool()
     
     # Create workflow from YAML
@@ -62,8 +116,10 @@ def main(args):
     workflow.register_application("Chatbot", chatbot)
     workflow.register_application("ChatbotHF", chatbotHF)
     workflow.register_application("LiveCaptions", liveCaptions)
+    workflow.register_application("LiveCaptionsHF", liveCaptionsHF)
     workflow.register_application("MCPServer", mcpServer)
     workflow.register_application("Retriever", retriever)
+    workflow.register_application("RetrieverServer", retrieverServer)
     workflow.register_application("DspyTool", dspyTool)
     
     print("Registered applications:")
@@ -106,8 +162,8 @@ def main(args):
     monitor_thread.start()
 
     tally_scheduler = workflow.scheduler.lower() if isinstance(workflow.scheduler, str) else workflow.scheduler
-    if tally_scheduler in {"tally", "tgs", "naive"}:
-        print(f"Pre-warming tally runtime for scheduler={tally_scheduler} before benchmark start")
+    if tally_scheduler in {"tally", "tgs"} and os.environ.get("CONSUMERBENCH_TALLY_RUNTIME_MANAGED") != "1":
+        print(f"Setting up tally runtime for scheduler={tally_scheduler} before benchmark start")
         ensure_tally_runtime(tally_scheduler, repo_dir)
 
     # Run the benchmark
@@ -120,7 +176,7 @@ def main(args):
         print("\n=== Results ===")
         bm.display_results()
     finally:
-        if tally_scheduler in {"tally", "tgs", "naive"}:
+        if tally_scheduler in {"tally", "tgs"} and os.environ.get("CONSUMERBENCH_TALLY_RUNTIME_MANAGED") != "1":
             release_tally_runtime(tally_scheduler, repo_dir)
 
         # Stop GPU memory monitoring

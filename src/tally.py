@@ -13,12 +13,18 @@ _TALLY_STARTED_BY_HELPER = False
 def _get_tally_log_paths() -> Tuple[str, str]:
     """Resolve log file locations for iox-roudi and tally server."""
     results_dir = None
+    env_results_dir = os.environ.get("CONSUMERBENCH_RESULTS_DIR")
+    if env_results_dir:
+        results_dir = env_results_dir
+
     try:
-        import src.globals as globals
-        results_dir = globals.get_results_dir()
+        if results_dir is None:
+            import src.globals as globals
+            results_dir = globals.get_results_dir()
     except Exception:
         # Fallback for callers that haven't initialized global results dir.
-        results_dir = os.path.join(os.getcwd(), "results")
+        if results_dir is None:
+            results_dir = os.path.join(os.getcwd(), "results")
 
     os.makedirs(results_dir, exist_ok=True)
     return (
@@ -65,6 +71,9 @@ def ensure_tally_runtime(scheduler: Optional[str], repo_dir: str) -> Optional[st
     tally_root = detect_tally_root(repo_dir)
     os.environ["TALLY_HOME"] = tally_root
     print(f"[tally] using tally root: {tally_root}")
+    iox_log_path, server_log_path = _get_tally_log_paths()
+    print(f"[tally] iox log file: {iox_log_path}")
+    print(f"[tally] server log file: {server_log_path}")
 
     with _TALLY_LIFECYCLE_LOCK:
         if _TALLY_USERS > 0:
@@ -81,8 +90,6 @@ def ensure_tally_runtime(scheduler: Optional[str], repo_dir: str) -> Optional[st
 
         if not is_iox_running():
             print("[tally] starting iox-roudi ...")
-            iox_log_path, _ = _get_tally_log_paths()
-            print(f"[tally] iox logs: {iox_log_path}")
             with open(iox_log_path, "a") as iox_log:
                 subprocess.Popen(
                     ["bash", start_iox_script],
@@ -90,7 +97,7 @@ def ensure_tally_runtime(scheduler: Optional[str], repo_dir: str) -> Optional[st
                     stderr=iox_log,
                     start_new_session=True,
                 )
-            time.sleep(15)
+            time.sleep(25)
             started_by_this_flow = True
             print("[tally] iox-roudi start requested")
         else:
@@ -106,8 +113,6 @@ def ensure_tally_runtime(scheduler: Optional[str], repo_dir: str) -> Optional[st
             print(f"[tally] starting tally server with SCHEDULER_POLICY={scheduler_policy} ...")
             server_env = os.environ.copy()
             server_env["SCHEDULER_POLICY"] = scheduler_policy
-            _, server_log_path = _get_tally_log_paths()
-            print(f"[tally] server logs: {server_log_path}")
             with open(server_log_path, "a") as server_log:
                 subprocess.Popen(
                     ["bash", start_server_script],
@@ -152,12 +157,3 @@ def release_tally_runtime(scheduler: Optional[str], repo_dir: str):
                            capture_output=True, text=True)
             _TALLY_STARTED_BY_HELPER = False
             print("[tally] tally runtime shutdown complete")
-
-
-def wrap_command_with_tally_client(command: List[str], tally_root: str, priority: int, env: Optional[Dict[str, str]] = None) -> Tuple[List[str], Dict[str, str]]:
-    wrapped_env = dict(env) if env is not None else os.environ.copy()
-    wrapped_env["PRIORITY"] = str(priority)
-    start_client_script = os.path.join(tally_root, "scripts", "start_client.sh")
-    wrapped_cmd = ["env", f"PRIORITY={priority}", "bash", start_client_script] + command
-    print(f"[tally] wrapping command with tally client: {' '.join(wrapped_cmd)}")
-    return wrapped_cmd, wrapped_env
