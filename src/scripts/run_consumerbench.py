@@ -25,20 +25,20 @@ from src.tally import ensure_tally_runtime, release_tally_runtime, detect_tally_
 from monitors.memory_util import GpuMemoryMonitor
 
 
-def _scheduler_from_config(config_file):
+def get_scheduler(config_file):
     workflow = Workflow(config_file)
-    return workflow.scheduler.lower() if isinstance(workflow.scheduler, str) else workflow.scheduler
+    return workflow.scheduler.lower()
 
 
-def _relaunch_under_tally_client(config_file):
-    if os.environ.get("CONSUMERBENCH_TALLY_CLIENT_WRAPPED") == "1":
+def ensure_tally_client(config_file):
+    if os.environ.get("TALLY_CLIENT_WRAPPED") == "1":
         return False
 
-    scheduler = _scheduler_from_config(config_file)
-    if scheduler not in {"tally", "tgs"}:
+    scheduler = get_scheduler(config_file)
+    if scheduler not in {"tally", "tgs", "naive"}:
         return False
 
-    print(f"Pre-warming tally runtime for scheduler={scheduler} before benchmark start")
+    print(f"Setting up tally scheduler={scheduler.upper()} before benchmark start")
     ensure_tally_runtime(scheduler, repo_dir)
 
     tally_root = detect_tally_root(repo_dir)
@@ -47,9 +47,9 @@ def _relaunch_under_tally_client(config_file):
         raise FileNotFoundError(f"Missing start_client.sh at {start_client_script}")
 
     env = os.environ.copy()
-    env["CONSUMERBENCH_TALLY_CLIENT_WRAPPED"] = "1"
-    env["CONSUMERBENCH_TALLY_RUNTIME_MANAGED"] = "1"
-    env.setdefault("PRIORITY", "1")
+    env["TALLY_CLIENT_WRAPPED"] = "1"
+    env["TALLY_RUNTIME_UP"] = "1"
+    env.setdefault("PRIORITY", "2")
 
     relaunch_cmd = [
         "bash",
@@ -57,7 +57,7 @@ def _relaunch_under_tally_client(config_file):
         sys.executable,
         os.path.abspath(__file__),
     ] + sys.argv[1:]
-    print("Relaunching run_consumerbench.py under a single Tally client context")
+    print("Relaunching ConsumerBench under Tally client context")
     try:
         rc = subprocess.run(relaunch_cmd, env=env).returncode
     finally:
@@ -81,9 +81,8 @@ def main(args):
     # written into the configured benchmark results directory.
     globals.set_start_time()
     globals.set_results_dir(f"{args.results}")
-    os.environ["CONSUMERBENCH_RESULTS_DIR"] = f"{args.results}"
 
-    if _relaunch_under_tally_client(config_file):
+    if ensure_tally_client(config_file):
         return
 
     print(f"=== Testing User Workflow with ConsumerBench ===\n")
@@ -161,9 +160,9 @@ def main(args):
     monitor_thread.daemon = True
     monitor_thread.start()
 
-    tally_scheduler = workflow.scheduler.lower() if isinstance(workflow.scheduler, str) else workflow.scheduler
-    if tally_scheduler in {"tally", "tgs"} and os.environ.get("CONSUMERBENCH_TALLY_RUNTIME_MANAGED") != "1":
-        print(f"Setting up tally runtime for scheduler={tally_scheduler} before benchmark start")
+    valid_tally = workflow.scheduler.lower() in {"tally", "tgs", "naive"}
+    if valid_tally and os.environ.get("TALLY_RUNTIME_UP") != "1":
+        print(f"Setting up tally scheduler={tally_scheduler.upper()} before benchmark start")
         ensure_tally_runtime(tally_scheduler, repo_dir)
 
     # Run the benchmark
@@ -176,7 +175,7 @@ def main(args):
         print("\n=== Results ===")
         bm.display_results()
     finally:
-        if tally_scheduler in {"tally", "tgs"} and os.environ.get("CONSUMERBENCH_TALLY_RUNTIME_MANAGED") != "1":
+        if valid_tally and os.environ.get("TALLY_RUNTIME_UP") != "1":
             release_tally_runtime(tally_scheduler, repo_dir)
 
         # Stop GPU memory monitoring
