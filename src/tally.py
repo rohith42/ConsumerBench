@@ -87,7 +87,7 @@ def ensure_tally_runtime(scheduler: Optional[str], repo_dir: str) -> Optional[st
                     stderr=iox_log,
                     start_new_session=True,
                 )
-            time.sleep(25)
+            time.sleep(45)
             started_by_this_flow = True
             print("[tally] iox-roudi is up")
         else:
