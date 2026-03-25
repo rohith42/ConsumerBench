@@ -18,6 +18,9 @@ def get_tally_log_paths() -> Tuple[str, str]:
     except Exception:
         results_dir = os.path.abspath(os.path.join(repo_dir, "results"))
 
+    # Tally may start before other components create the output directory.
+    os.makedirs(results_dir, exist_ok=True)
+
     return (
         os.path.join(results_dir, "tally_iox.log"),
         os.path.join(results_dir, "tally_server.log"),
