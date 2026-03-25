@@ -115,3 +115,5 @@ workflows:
 ```
 ## Troubleshooting
 
+Any Tally-related errors will be logged in `results/tally_iox.log` or `results/tally_server.log`
+
