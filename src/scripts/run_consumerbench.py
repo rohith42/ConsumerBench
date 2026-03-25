@@ -27,7 +27,7 @@ from monitors.memory_util import GpuMemoryMonitor
 
 def get_scheduler(config_file):
     workflow = Workflow(config_file)
-    return workflow.scheduler.lower()
+    return workflow.scheduler.lower() if workflow.scheduler else None
 
 
 def ensure_tally_client(config_file):
@@ -160,7 +160,7 @@ def main(args):
     monitor_thread.daemon = True
     monitor_thread.start()
 
-    valid_tally = workflow.scheduler.lower() in {"tally", "tgs", "naive"}
+    valid_tally = workflow.scheduler is not None and workflow.scheduler.lower() in {"tally", "tgs", "naive"}
     if valid_tally and os.environ.get("TALLY_RUNTIME_UP") != "1":
         print(f"Setting up tally scheduler={tally_scheduler.upper()} before benchmark start")
         ensure_tally_runtime(tally_scheduler, repo_dir)
