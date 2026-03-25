@@ -34,7 +34,7 @@ python -m venv --system-site-packages .cb
 source .cb/bin/activate
 
 python -m pip install --upgrade pip setuptools wheel
-python -m pip install -r requirements_tally.txt
+python -m pip install --no-deps -r requirements_tally.txt
 ```
 
 Make sure to specifically use `requirements_tally.txt` to install most libraries. 
