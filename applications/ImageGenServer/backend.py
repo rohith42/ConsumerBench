@@ -25,8 +25,7 @@ class ImageGenServer:
                 model,
                 text_encoder_3=None,
                 tokenizer_3=None,
-                torch_dtype=torch.float16,
-                low_cpu_mem_usage=True,
+                torch_dtype=torch.float16
             )
 
             # Reduce runtime VRAM spikes when co-running with other GPU apps.
@@ -49,8 +48,7 @@ class ImageGenServer:
             self.pipeline = StableDiffusion3Pipeline.from_pretrained(
                 model,
                 text_encoder_3=None,
-                tokenizer_3=None,
-                low_cpu_mem_usage=True,
+                tokenizer_3=None
             )
             self.pipeline = self.pipeline.to("cpu")
 

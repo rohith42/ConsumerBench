@@ -59,8 +59,12 @@ cd /home/cc/tally-bench/tally
 
 bash scripts/start_iox.sh & sleep 35
 SCHEDULER_POLICY=TGS bash scripts/start_server.sh & sleep 2
-bash scripts/start_client.sh python ../ConsumerBench/setup/pytorch_test.py
+bash scripts/start_client.sh python [script]
 ```
+
+### Important Note: a couple test runs for each application may be required due to Tally's kernel conversions, which takes a little bit of time
+
+
 ## Usage
 
 For running ConsumerBench workflows on Tally, it's very simple. Specify the scheduler at the top and the priority for each application.
