@@ -49,7 +49,6 @@ def ensure_tally_client(config_file):
     env = os.environ.copy()
     env["TALLY_CLIENT_WRAPPED"] = "1"
     env["TALLY_RUNTIME_UP"] = "1"
-    env.setdefault("PRIORITY", "2")
 
     relaunch_cmd = [
         "bash",
