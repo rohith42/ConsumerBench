@@ -60,6 +60,9 @@ cd /home/cc/tally-bench/tally
 bash scripts/start_iox.sh & sleep 35
 SCHEDULER_POLICY=TGS bash scripts/start_server.sh & sleep 2
 bash scripts/start_client.sh python [script]
+
+bash scripts/kill_server.sh
+bash scripts/kill_iox.sh
 ```
 
 ### Important Note: a couple test runs for each application may be required due to Tally's kernel conversions, which takes a little bit of time

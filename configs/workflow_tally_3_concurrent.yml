@@ -14,7 +14,7 @@ lv1:
   num_requests: 1
   device: gpu
   api_port: 5011
-  client_command_file: datasets/whisper-earnings21/5-min-chunks/4320211_chunk_002.wav
+  client_command_file: /home/cc/tally-bench/ConsumerBench/applications/LiveCaptions/whisper-earnings21/4320211_chunk_002.wav
   priority: 2
 
 chat1:
