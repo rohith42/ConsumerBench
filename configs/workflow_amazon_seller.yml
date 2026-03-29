@@ -1,0 +1,81 @@
+Supplier Call Transcription (live_captions):
+    type: LiveCaptionsHF
+    num_requests: 1
+    device: gpu
+    mps: 100
+    model: openai/whisper-large-v3-turbo
+    api_port: 5011
+    priority: 1
+    # Story stage 1A: Transcribe supplier call.
+    client_command_file: /home/cc/tally-bench/ConsumerBench/applications/LiveCaptions/whisper-earnings21/4320211_chunk_002.wav
+
+Product Feature Retrieval (rag_retriever):
+    type: RetrieverServer
+    num_requests: 5
+    device: gpu
+    mps: 100
+    api_port: 8031
+    priority: 1
+    # Story stage 1B: Retrieve product features.
+
+Generate Hero Images (imagegen):
+    type: ImageGenServer
+    num_requests: 8
+    device: gpu
+    mps: 100
+    model: /home/cc/tally-bench/ConsumerBench/models/stable-diffusion-3.5-medium-turbo
+    api_port: 8021
+    priority: 1
+    # Story stage 2B: Generate hero/lifestyle variants in parallel with copy drafting.
+
+Generate Product Description (rag_generation):
+    type: ChatbotHF
+    num_requests: 10
+    device: gpu
+    mps: 100
+    model: meta-llama/Llama-3.2-3B-Instruct
+    api_port: 8011
+    priority: 1
+    # Story stage 2A: Draft listing copy after transcription and retrieval complete.
+
+Inventory & Price Update (dbbench):
+    type: DbBench
+    num_requests: 3
+    tool_kwargs:
+        tool: sql
+        query: "UPDATE unknown SET Pos = 'LOW_STOCK', Name = 'Blue Bottle 20oz' WHERE No = '20';"
+        num_runs: 1
+        data_file: /home/cc/tally-bench/ConsumerBench/applications/DbBench/data_dbbench.jsonl
+    # Story stage 3A: Apply inventory updates after copy and image generation.
+
+Photo File Management (ostool):
+    type: OsTool
+    num_requests: 2
+    tool_kwargs:
+        tool: bash
+        num_runs: 1
+        data_file: /home/cc/tally-bench/ConsumerBench/applications/OSTool/data/data_amazon.json
+    # Story stage 3B: Run file automation after copy and image generation.
+
+workflows:
+    transcribe_supplier_call:
+        uses: Supplier Call Transcription (live_captions)
+
+    retrieve_features:
+        uses: Product Feature Retrieval (rag_retriever)
+
+    generate_listing_images:
+        uses: Generate Hero Images (imagegen)
+        depend_on: ["retrieve_features"]
+
+    generate_listing_copy:
+        uses: Generate Product Description (rag_generation)
+        depend_on: ["retrieve_features", "transcribe_supplier_call"]
+
+    update_inventory_database:
+        uses: Inventory & Price Update (dbbench)
+        depend_on: ["generate_listing_copy", "generate_listing_images"]
+
+    package_assets_and_finalize:
+        uses: Photo File Management (ostool)
+        depend_on: ["generate_listing_copy", "generate_listing_images"]
