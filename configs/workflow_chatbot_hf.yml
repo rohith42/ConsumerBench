@@ -3,7 +3,7 @@ chat1:
     num_requests: 50
     device: gpu
     type: ChatbotHF
-    # mps: 33
+    mps: 10
 
 workflows:
     chat_summary:

@@ -1,8 +1,8 @@
 lv:
     num_requests: 1
     device: gpu
-    mps: 100
-    client_command_file: datasets/whisper-earnings21/5-min-chunks/4320211_chunk_002.wav
+    mps: 50
+    client_command_file: /home/cc/tally-bench/ConsumerBench/applications/LiveCaptions/whisper-earnings21/4320211_chunk_002.wav
     type: LiveCaptions
 
 workflows:

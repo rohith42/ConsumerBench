@@ -1,10 +1,14 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
+import sys
 import numpy as np
+import parse_results_chatbot_log as chat
+import parse_results_lv_log as lv
+import parse_results_imagegen_log as img
 
 # Global font size
-plt.rcParams.update({'font.size': 24})
+plt.rcParams.update({'font.size': 14})
 
 SLOs = {
     'chatbot-ttft': 1,
@@ -21,8 +25,8 @@ def plot_performance(gpu_folder_path, cpu_folder_path, save_path="scripts/plots/
     chat_bot_cpu_data = pd.read_csv(os.path.join(cpu_folder_path, 'task_chat1_u0_perf.csv'))
     image_gen_gpu_data = pd.read_csv(os.path.join(gpu_folder_path, 'task_imagegen1_u0_perf.csv'))
     image_gen_cpu_data = pd.read_csv(os.path.join(cpu_folder_path, 'task_imagegen1_u0_perf.csv'))
-    live_caption_gpu_data = pd.read_csv(os.path.join(gpu_folder_path, 'task_lv_u0_perf.csv'))
-    live_caption_cpu_data = pd.read_csv(os.path.join(cpu_folder_path, 'task_lv_u0_perf.csv'))
+    live_caption_gpu_data = pd.read_csv(os.path.join(gpu_folder_path, 'task_lv1_u0_perf.csv'))
+    live_caption_cpu_data = pd.read_csv(os.path.join(cpu_folder_path, 'task_lv1_u0_perf.csv'))
 
     # print min max
     print(image_gen_gpu_data['total time'].min(), image_gen_gpu_data['total time'].max())
@@ -171,10 +175,15 @@ def plot_performance(gpu_folder_path, cpu_folder_path, save_path="scripts/plots/
 
 
 def plot_performance_bar_plots(folder_path):
+    # Generate CSVs
+    chat.parse_results_from_file(os.path.join(folder_path, 'task_chat1_u0_perf.log'))
+    img.parse_results_from_file(os.path.join(folder_path, 'task_imagegen1_u0_perf.log'))
+    lv.parse_results_from_file(os.path.join(folder_path, 'task_lv1_u0_perf.log')) 
+
     # Read CSVs
     chatbot_data = pd.read_csv(os.path.join(folder_path, 'task_chat1_u0_perf.csv'))
     imagegen_data = pd.read_csv(os.path.join(folder_path, 'task_imagegen1_u0_perf.csv'))
-    livecaption_data = pd.read_csv(os.path.join(folder_path, 'task_lv_u0_perf.csv'))
+    livecaption_data = pd.read_csv(os.path.join(folder_path, 'task_lv1_u0_perf.csv'))
 
     # Metrics
     chatbot_ttft = chatbot_data['ttft'].mean() / SLOs['chatbot-ttft']
@@ -202,86 +211,98 @@ def plot_performance_bar_plots(folder_path):
     slo_colors = ['#778899', '#A0522D', '#C71585']
     slo_hatch = 'x'
 
-    # X positions
-    latency_x = [0, 1, 2.5, 4]
-    slo_x = [6, 7, 8]
-    divider_x = 5.25
-    bar_width = 0.8
+    # Plot in two panels to avoid clutter from mixing two different y-axes.
+    bar_width = 0.7
     alpha = 1
-    edge_width = 2
+    edge_width = 1.8
+    fig, (ax_lat, ax_slo) = plt.subplots(
+        1,
+        2,
+        figsize=(15, 7.5),
+        gridspec_kw={'width_ratios': [1.35, 1]}
+    )
 
-    # Plot
-    fig, ax = plt.subplots(figsize=(12, 6))
-    ax2 = ax.twinx()
+    # Latency panel
+    latency_x = np.arange(len(latency_values))
+    latency_labels = ['Chatbot\nTTFT', 'Chatbot\nTPOT', 'ImageGen', 'LiveCaption']
+    ax_lat.bar(
+        latency_x,
+        latency_values,
+        yerr=latency_stds,
+        width=bar_width,
+        color=latency_colors,
+        hatch=latency_hatch,
+        alpha=alpha,
+        edgecolor=latency_colors,
+        linewidth=edge_width,
+        facecolor='white'
+    )
+    ax_lat.set_yscale('log')
+    # Log scale cannot include negative values; this sets 10^-2 to 10^2.
+    ax_lat.set_ylim(1e-2, 1e2)
+    ax_lat.set_xticks(latency_x)
+    ax_lat.set_xticklabels(latency_labels)
+    ax_lat.set_ylabel('Normalized Latency (log scale)')
+    ax_lat.set_title('Latency')
+    ax_lat.axhline(y=1.0, color='green', linestyle='--', linewidth=2, label='Latency Threshold')
+    ax_lat.grid(axis='y', which='both', alpha=0.2)
 
-    # Latency bars
-    ax.bar(latency_x, latency_values, yerr=latency_stds, width=bar_width,
-           color=latency_colors, hatch=latency_hatch, alpha=alpha,
-           edgecolor=latency_colors, linewidth=edge_width, facecolor='white', log=True)
+    # SLO panel
+    slo_x = np.arange(len(slo_values))
+    slo_labels = ['Chatbot', 'ImageGen', 'LiveCaption']
+    ax_slo.bar(
+        slo_x,
+        slo_values,
+        width=bar_width,
+        color=slo_colors,
+        hatch=slo_hatch,
+        alpha=alpha,
+        edgecolor=slo_colors,
+        linewidth=edge_width,
+        facecolor='white'
+    )
+    ax_slo.set_ylim(0, 110)
+    ax_slo.set_yticks([0, 20, 40, 60, 80, 100])
+    ax_slo.set_xticks(slo_x)
+    ax_slo.set_xticklabels(slo_labels)
+    ax_slo.set_ylabel('SLO Attainment (%)')
+    ax_slo.set_title('SLO')
+    ax_slo.axhline(y=100.0, color='green', linestyle='--', linewidth=2, label='SLO Threshold')
+    ax_slo.grid(axis='y', alpha=0.2)
 
-    # SLO bars
-    ax2.bar(slo_x, slo_values, width=bar_width, color=slo_colors, hatch=slo_hatch,
-            alpha=alpha, edgecolor=slo_colors, linewidth=edge_width, facecolor='white')
+    # Annotate SLO percentages
+    for i, val in enumerate(slo_values):
+        ax_slo.text(i, val + 1.5, f'{int(val)}%', ha='center', va='bottom', color=slo_colors[i])
 
-    # Vertical divider
-    ax.axvline(x=divider_x, color='gray', linestyle='-', linewidth=2)
-
-    # Horizontal thresholds
-    ax.hlines(y=1.0, xmin=-1, xmax=divider_x, color='green', linestyle='--', linewidth=2)
-    ax2.hlines(y=100.0, xmin=divider_x, xmax=9, color='green', linestyle='--', linewidth=2)
-
-    # X-axis ticks and labels
-    x_ticks = [0, 1, 2.5, 4, 6, 7, 8]
-    x_labels = ['Chatbot-TTFT', 'Chatbot-TPOT', 'ImageGen', 'LiveCaption',
-                'Chatbot', 'ImageGen', 'LiveCaption']
-    ax.set_xticks(x_ticks)
-    ax.set_xticklabels(x_labels, rotation=15)
-
-    # Axes formatting
-    ax.set_ylabel('Normalized Latency (log scale)', color='black')
-    ax.set_yscale('log')
-    ax.set_xlim(-1, 9)
-    ax.set_ylim(1e-3, 1e3)
-    ax.tick_params(axis='y', labelcolor='black')
-
-    ax2.set_ylabel('SLO Attainment (%)', color='black')
-    ax2.set_ylim(0, 110)
-    ax2.set_yticks([0, 20, 40, 60, 80, 100])
-    ax2.tick_params(axis='y', labelcolor='black')
-
-    # Sorted labels and handles
-    legend_labels = [
-        'Chatbot - Latency',
-        'ImageGen - Latency',
-        'LiveCaption - Latency',
-        'Latency / SLO Threshold',
-        'Chatbot - SLO',
-        'ImageGen - SLO',
-        'LiveCaption - SLO'
-    ]
-
+    # Shared legend with app colors and threshold line.
     legend_handles = [
         plt.Rectangle((0, 0), 1, 1, facecolor='white', edgecolor=latency_colors[0], hatch=latency_hatch, linewidth=edge_width),
         plt.Rectangle((0, 0), 1, 1, facecolor='white', edgecolor=latency_colors[2], hatch=latency_hatch, linewidth=edge_width),
         plt.Rectangle((0, 0), 1, 1, facecolor='white', edgecolor=latency_colors[3], hatch=latency_hatch, linewidth=edge_width),
         plt.Line2D([], [], color='green', linestyle='--', linewidth=2),
-        plt.Rectangle((0, 0), 1, 1, facecolor='white', edgecolor=slo_colors[0], hatch=slo_hatch, linewidth=edge_width),
-        plt.Rectangle((0, 0), 1, 1, facecolor='white', edgecolor=slo_colors[1], hatch=slo_hatch, linewidth=edge_width),
-        plt.Rectangle((0, 0), 1, 1, facecolor='white', edgecolor=slo_colors[2], hatch=slo_hatch, linewidth=edge_width),
     ]
-
-    # Display in two rows of 4 items max
-    fig.legend(legend_handles, legend_labels, loc='upper center', ncol=3, frameon=False, bbox_to_anchor=(0.5, 1))
+    legend_labels = ['Chatbot', 'ImageGen', 'LiveCaption', 'Threshold']
+    fig.legend(
+        legend_handles,
+        legend_labels,
+        loc='upper center',
+        ncol=4,
+        frameon=False,
+        bbox_to_anchor=(0.5, 0.985)
+    )
 
     # Layout and save
-    fig.tight_layout(rect=[0, 0, 1, 0.85])
+    fig.tight_layout(rect=[0.02, 0.02, 0.98, 0.87])
     plot_path = os.path.join(folder_path, 'performance_split_barplot_final_labeled.pdf')
-    plt.savefig(plot_path)
-    # plt.show()
+    plt.savefig(plot_path, bbox_inches='tight', pad_inches=0.25)
+    plt.close(fig)
     print(f"Plot saved to {plot_path}")
 
-# Example usage:
-plot_performance(
-    'scripts/plots/bar_plots_gpu_single_app_sampling',
-    'scripts/plots/bar_plots_cpu_single_app_sampling'
-    )
+if __name__ == "__main__":
+    # Check if a file path was provided as command line argument
+    if len(sys.argv) > 1:
+        folder_path = sys.argv[1]
+        plot_performance_bar_plots(folder_path)
+    else:
+        print("Usage: python script_name.py <path_to_results_file>")
+        print("Example: python parse_results.py log_file.txt")
