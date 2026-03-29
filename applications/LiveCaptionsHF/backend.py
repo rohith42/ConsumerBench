@@ -126,6 +126,26 @@ class LiveCaptionsHFServer:
 
         return audio.astype(np.float32, copy=False), int(sampling_rate)
 
+    def _run_pipe(self, audio_array, sampling_rate, call_kwargs, legacy_parity=False):
+        if not legacy_parity:
+            return self.pipe({"raw": audio_array, "sampling_rate": sampling_rate}, **call_kwargs)
+
+        # Legacy LiveCaptions uses more expensive decoding behavior.
+        legacy_kwargs = dict(call_kwargs)
+        gen_kwargs = dict(legacy_kwargs.get("generate_kwargs", {}))
+        gen_kwargs.setdefault("num_beams", 5)
+        gen_kwargs.setdefault("condition_on_prev_tokens", True)
+        legacy_kwargs["generate_kwargs"] = gen_kwargs
+
+        try:
+            return self.pipe({"raw": audio_array, "sampling_rate": sampling_rate}, **legacy_kwargs)
+        except Exception as exc:
+            logging.warning(
+                "Legacy-parity decode kwargs were not accepted (%s). Falling back to default decode kwargs.",
+                exc,
+            )
+            return self.pipe({"raw": audio_array, "sampling_rate": sampling_rate}, **call_kwargs)
+
     def transcribe(self, audio_file, language="en", task="transcribe", chunk_length_s=30.0, batch_size=8):
         if not os.path.exists(audio_file):
             raise FileNotFoundError(f"Audio file does not exist: {audio_file}")
@@ -163,7 +183,15 @@ class LiveCaptionsHFServer:
             "audio_file": audio_file,
         }
 
-    def transcribe_realtime(self, audio_file, language="en", task="transcribe", chunk_seconds=2.0, simulate_realtime=True):
+    def transcribe_realtime(
+        self,
+        audio_file,
+        language="en",
+        task="transcribe",
+        chunk_seconds=2.0,
+        simulate_realtime=True,
+        legacy_parity=True,
+    ):
         if not os.path.exists(audio_file):
             raise FileNotFoundError(f"Audio file does not exist: {audio_file}")
 
@@ -185,6 +213,7 @@ class LiveCaptionsHFServer:
         start_wall = time.time()
         chunk_results = []
         all_text_parts = []
+        accumulated_audio = np.array([], dtype=np.float32)
 
         total_samples = len(audio_array)
         chunk_count = (total_samples + chunk_samples - 1) // chunk_samples
@@ -203,10 +232,20 @@ class LiveCaptionsHFServer:
             if generation_kwargs:
                 call_kwargs["generate_kwargs"] = generation_kwargs
 
-            pipe_result = self.pipe(
-                {"raw": raw_chunk, "sampling_rate": sampling_rate},
-                **call_kwargs,
+            if legacy_parity:
+                accumulated_audio = np.concatenate((accumulated_audio, raw_chunk))
+                inference_audio = accumulated_audio
+            else:
+                inference_audio = raw_chunk
+
+            model_start_time = time.time()
+            pipe_result = self._run_pipe(
+                audio_array=inference_audio,
+                sampling_rate=sampling_rate,
+                call_kwargs=call_kwargs,
+                legacy_parity=legacy_parity,
             )
+            model_end_time = time.time()
             chunk_recv_time = time.time()
 
             chunk_text = pipe_result.get("text", "") if isinstance(pipe_result, dict) else str(pipe_result)
@@ -218,8 +257,10 @@ class LiveCaptionsHFServer:
                 "chunk_start_sec": begin / float(sampling_rate),
                 "chunk_end_sec": min((idx + 1) * chunk_seconds, total_samples / float(sampling_rate)),
                 "processing_time": chunk_recv_time - chunk_send_time,
+                "model_processing_time": model_end_time - model_start_time,
                 "sent_at": chunk_send_time,
                 "received_at": chunk_recv_time,
+                "inference_audio_seconds": len(inference_audio) / float(sampling_rate),
                 "text": chunk_text,
                 "segments": pipe_result.get("chunks") if isinstance(pipe_result, dict) else None,
             }
@@ -242,6 +283,7 @@ class LiveCaptionsHFServer:
             "audio_file": audio_file,
             "chunk_seconds": chunk_seconds,
             "simulate_realtime": simulate_realtime,
+            "legacy_parity": bool(legacy_parity),
         }
 
 
@@ -281,18 +323,24 @@ def make_handler(app):
                     if isinstance(simulate_realtime, str):
                         simulate_realtime = simulate_realtime.lower() in {"1", "true", "yes", "on"}
 
+                    legacy_parity = payload.get("legacy_parity", True)
+                    if isinstance(legacy_parity, str):
+                        legacy_parity = legacy_parity.lower() in {"1", "true", "yes", "on"}
+
                     response = app.transcribe_realtime(
                         audio_file=audio_file,
                         language=payload.get("language", "en"),
                         task=payload.get("task", "transcribe"),
                         chunk_seconds=float(payload.get("chunk_seconds", 2.0)),
                         simulate_realtime=simulate_realtime,
+                        legacy_parity=legacy_parity,
                     )
                     logging.info(
-                        "Realtime transcription complete file=%s processing_time=%.3fs chunk_seconds=%.2f",
+                        "Realtime transcription complete file=%s processing_time=%.3fs chunk_seconds=%.2f legacy_parity=%s",
                         audio_file,
                         float(response.get("processing_time", 0.0)),
                         float(payload.get("chunk_seconds", 2.0)),
+                        bool(legacy_parity),
                     )
                 else:
                     response = app.transcribe(
@@ -349,3 +397,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
