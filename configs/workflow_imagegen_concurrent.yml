@@ -1,5 +1,5 @@
 imagegen1:
-    model: /home/tally-bench/ConsumerBench/models/stable-diffusion-3.5-medium-turbo
+    model: models/stable-diffusion-3.5-medium-turbo
     # server_model: CompVis/stable-diffusion-v1-4
     num_requests: 10
     device: gpu
@@ -8,7 +8,7 @@ imagegen1:
     # mps: 100
 
 imagegen2:
-    model: /home/tally-bench/ConsumerBench/models/stable-diffusion-3.5-medium-turbo
+    model: models/stable-diffusion-3.5-medium-turbo
     # server_model: CompVis/stable-diffusion-v1-4
     num_requests: 10
     device: gpu
