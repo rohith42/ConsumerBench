@@ -6,7 +6,7 @@ SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPTS_DIR/.." && pwd)"
 RUN_BENCHMARK="$SCRIPTS_DIR/run_benchmark.sh"
 
-BASE_CONFIG="${1:-$REPO_DIR/configs/workflow_tally_3_concurrent.yml}"
+BASE_CONFIG="${1:-$REPO_DIR/configs/workflow_tally_concurrent.yml}"
 NSIGHT="${2:-0}"
 
 if [[ ! -f "$BASE_CONFIG" ]]; then
