@@ -16,6 +16,19 @@ conda create -n consumerbench python=3.10
 conda activate consumerbench
 pip install -r requirements.txt
 ```
+
+### Configure paths
+Several config files and source files use placeholder paths that must be replaced with your local paths before running:
+- `<WORKSPACE>` — the root directory where ConsumerBench and related repos (e.g., Tally) are installed.
+- `<MODELS_DIR>` — the directory where model weights are stored.
+
+For example:
+```bash
+# Replace placeholders in config files
+sed -i 's|<WORKSPACE>|/path/to/your/workspace|g' configs/*.yml setup/*.sh src/tally.py
+sed -i 's|<MODELS_DIR>|/path/to/your/models|g' configs/*.yml src/handles.py applications/ImageGen/ImageGen.py applications/ImageGenServer/ImageGenServer.py
+```
+
 ### Install applications
 Follow instructions mentioned in `applications/`
 

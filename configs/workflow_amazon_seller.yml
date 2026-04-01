@@ -7,7 +7,7 @@ Supplier Call Transcription (live_captions):
     api_port: 5011
     priority: 1
     # Story stage 1A: Transcribe supplier call.
-    client_command_file: /home/cc/tally-bench/ConsumerBench/applications/LiveCaptions/whisper-earnings21/4320211_chunk_002.wav
+    client_command_file: <WORKSPACE>/ConsumerBench/applications/LiveCaptions/whisper-earnings21/4320211_chunk_002.wav
 
 Product Feature Retrieval (rag_retriever):
     type: RetrieverServer
@@ -23,7 +23,7 @@ Generate Hero Images (imagegen):
     num_requests: 8
     device: gpu
     mps: 100
-    model: /home/cc/tally-bench/ConsumerBench/models/stable-diffusion-3.5-medium-turbo
+    model: <WORKSPACE>/ConsumerBench/models/stable-diffusion-3.5-medium-turbo
     api_port: 8021
     priority: 1
     # Story stage 2B: Generate hero/lifestyle variants in parallel with copy drafting.
@@ -45,7 +45,7 @@ Inventory & Price Update (dbbench):
         tool: sql
         query: "UPDATE unknown SET Pos = 'LOW_STOCK', Name = 'Blue Bottle 20oz' WHERE No = '20';"
         num_runs: 1
-        data_file: /home/cc/tally-bench/ConsumerBench/applications/DbBench/data_dbbench.jsonl
+        data_file: <WORKSPACE>/ConsumerBench/applications/DbBench/data_dbbench.jsonl
     # Story stage 3A: Apply inventory updates after copy and image generation.
 
 Photo File Management (ostool):
@@ -54,7 +54,7 @@ Photo File Management (ostool):
     tool_kwargs:
         tool: bash
         num_runs: 1
-        data_file: /home/cc/tally-bench/ConsumerBench/applications/OSTool/data/data_amazon.json
+        data_file: <WORKSPACE>/ConsumerBench/applications/OSTool/data/data_amazon.json
     # Story stage 3B: Run file automation after copy and image generation.
 
 workflows:

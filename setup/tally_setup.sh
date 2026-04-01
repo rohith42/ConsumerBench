@@ -11,14 +11,14 @@ set -euo pipefail
 # If --custom-tally is provided, that local tree is rsync'ed on top before build.
 
 # Change WORKSPACE to your $HOME/tally-bench
-WORKSPACE="/home/cc/tally-bench"
+WORKSPACE="<WORKSPACE>"
 CUSTOM_TALLY_DIR=""
 JOBS="$(nproc)"
 CUDA_ARCH="7.5"
 CUDA_ARCH_SHORT="75"
 TALLY_REPO_URL="https://github.com/saheezus/tally.git"
-PYTORCH_DIR="/home/pytorch"
-VISION_DIR="/home/vision"
+PYTORCH_DIR="<WORKSPACE>/pytorch"
+VISION_DIR="<WORKSPACE>/vision"
 
 if [[ $EUID -ne 0 ]]; then
   echo "Run as root (sudo) so system package installs work."

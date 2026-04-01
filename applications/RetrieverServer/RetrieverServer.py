@@ -122,7 +122,7 @@ class RetrieverServer(Application):
             f"Expected docs:  {docs_path}\n"
             f"Corpus looked for: {corpus_path}\n"
             "To fix on the target machine, ensure applications/Retriever assets are present and run:\n"
-            "  cd /home/tally-bench/ConsumerBench/applications/Retriever\n"
+            "  cd <WORKSPACE>/ConsumerBench/applications/Retriever\n"
             "  python build_index.py"
         )
 

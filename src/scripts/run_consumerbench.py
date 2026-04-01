@@ -89,7 +89,7 @@ def main(args):
 
     # Create application instances
     
-    # TODO: Yile, fix application type and instance tied up
+    # TODO: fix application type and instance tied up
     sleepApplication1 = SleepApplication()
     imageGen = ImageGen()
     imageGenServer = ImageGenServer()

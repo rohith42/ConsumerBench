@@ -80,7 +80,7 @@ class ImageGen(Application):
 
     def get_default_config(self) -> Dict[str, Any]:
         return {
-            "model": f"/mnt/tmpfs/models/stable-diffusion-3.5-medium-turbo",
+            "model": f"<MODELS_DIR>/stable-diffusion-3.5-medium-turbo",
             "device": "gpu",
             "mps": 100,
             "dataset": "sentence-transformers/coco-captions"

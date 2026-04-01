@@ -21,7 +21,7 @@ Preparing Outline (chatbot):
     mps: 33
 
 Creating Cover Art (imagegen):
-    model: /mnt/tmpfs/models/stable-diffusion-3.5-medium-turbo
+    model: <MODELS_DIR>/stable-diffusion-3.5-medium-turbo
     num_requests: 10
     device: gpu
     type: ImageGen

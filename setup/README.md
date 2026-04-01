@@ -13,22 +13,22 @@ This will create a new directory, `tally-bench`, where all experiments can be ra
 
 NOTE: This builds `pytorch` and `torchvision` from source, so it's important not to change these dependencies to ensure Tally works properly.
 
-4. Move ConsumerBench into `/home/cc/tally-bench`.
+4. Move ConsumerBench into `<WORKSPACE>`.
 5. Export the Tally home path:
 
 ```bash
-export TALLY_HOME=/home/$USER/tally-bench/tally
+export TALLY_HOME=<WORKSPACE>/tally
 ```
 
 ## Notes
 
 - A test run may be required after setup to verify everything is configured correctly.
-- If environment variables are not persisted, run `export TALLY_HOME=/home/$USER/tally-bench/tally`
+- If environment variables are not persisted, run `export TALLY_HOME=<WORKSPACE>/tally`
 
 ## Setting up Python Virtual Environment for ConsumerBench
 
 ```bash
-cd /home/cc/tally-bench
+cd <WORKSPACE>
 
 python -m venv --system-site-packages .cb
 source .cb/bin/activate
@@ -55,7 +55,7 @@ python -c "import torch, torchvision, sys; print(sys.executable); print(torch.__
 Here's a sample testing script to see if Tally was properly initialized:
 
 ```bash
-cd /home/cc/tally-bench/tally
+cd <WORKSPACE>/tally
 
 bash scripts/start_iox.sh & sleep 35
 SCHEDULER_POLICY=TGS bash scripts/start_server.sh & sleep 2
@@ -85,7 +85,7 @@ scheduler: tgs|tally|naive
 
 imagegen1:
   type: ImageGenServer
-  model: /home/tally-bench/ConsumerBench/models/stable-diffusion-3.5-medium-turbo
+  model: <WORKSPACE>/ConsumerBench/models/stable-diffusion-3.5-medium-turbo
   num_requests: 20
   device: gpu
   api_port: 8021

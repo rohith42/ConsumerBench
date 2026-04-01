@@ -107,7 +107,7 @@ def extract_traces_and_build_dag(jsonl_path, output_dir):
                 workflows[f"generate_{chatbot_counter}"]["depend_on"] = [previous_step]
 
             yaml_dict[comp_name] = {
-                "server_model": "/mnt/storage/rohan/models/Llama-3.2-3B-Instruct-GGUF/Llama-3.2-3B-Instruct-f16.gguf",
+                "server_model": "<WORKSPACE>/models/Llama-3.2-3B-Instruct-GGUF/Llama-3.2-3B-Instruct-f16.gguf",
                 "num_requests": 1,
                 "ids": [op_id],
                 "device": "gpu",

@@ -227,7 +227,7 @@ class ImageGenServer(Application):
 
     def get_default_config(self) -> Dict[str, Any]:
         return {
-            "model": "/mnt/tmpfs/models/stable-diffusion-3.5-medium-turbo",
+            "model": "<MODELS_DIR>/stable-diffusion-3.5-medium-turbo",
             "device": "gpu",
             "mps": 100,
             "api_port": 8020,

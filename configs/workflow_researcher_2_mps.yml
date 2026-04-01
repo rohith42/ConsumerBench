@@ -23,7 +23,7 @@ deep_research:
     mps: 33
 
 imagegen1:
-    server_model: /mnt/tmpfs/models/stable-diffusion-3.5-medium-turbo
+    server_model: <MODELS_DIR>/stable-diffusion-3.5-medium-turbo
     num_requests: 10
     device: gpu
     type: imagegen

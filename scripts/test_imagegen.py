@@ -2,7 +2,7 @@ import torch
 from diffusers import StableDiffusion3Pipeline
 
 pipe = StableDiffusion3Pipeline.from_pretrained(
-    "/mnt/tmpfs/models/stable-diffusion-3.5-large", 
+    "<MODELS_DIR>/stable-diffusion-3.5-large", 
     text_encoder_3=None,
     tokenizer_3=None,
     torch_dtype=torch.float16)

@@ -35,7 +35,7 @@ def detect_tally_root(repo_dir: str) -> str:
     if os.path.isdir(repo_tally):
         return repo_tally
 
-    fallback = "/home/cc/tally-bench/tally"
+    fallback = "<WORKSPACE>/tally"
     if os.path.isdir(fallback):
         return fallback
 

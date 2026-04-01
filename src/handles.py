@@ -151,7 +151,7 @@ def run_deep_research(**kwargs):
 def setup_imagegen(**kwargs):
     global global_vars
 
-    model = kwargs.get('model', "/mnt/tmpfs/models/stable-diffusion-3.5-large")
+    model = kwargs.get('model', "<MODELS_DIR>/stable-diffusion-3.5-large")
     device = kwargs.get('device', "gpu")
     mps = kwargs.get('mps', 100)
 
@@ -211,7 +211,7 @@ def run_imagegen_prompt(prompt):
 # def setup_imagegen(**kwargs):
 #     global global_vars
 
-#     model = kwargs.get('model', "/mnt/tmpfs/models/stable-diffusion-3.5-large")
+#     model = kwargs.get('model', "<MODELS_DIR>/stable-diffusion-3.5-large")
 #     device = kwargs.get('device', "gpu")
 #     mps = kwargs.get('mps', 100)
 #     fixed_prompt = globals.get_next_imagegen_prompt()
