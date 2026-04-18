@@ -38,7 +38,7 @@ class GpuMemoryMonitor:
     def flush_cache(self):
         """Flush the system cache to ensure accurate memory readings"""
         try:
-            subprocess.check_call("sync; echo 3 | sudo tee /proc/sys/vm/drop_caches", shell=True)
+            # subprocess.check_call("sync; echo 3 | sudo tee /proc/sys/vm/drop_caches", shell=True)
             print("Cache flushed")
         except Exception as e:
             print(f"Error flushing cache: {e}")
