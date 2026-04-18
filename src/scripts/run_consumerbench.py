@@ -5,14 +5,14 @@ import argparse
 repo_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(repo_dir)
 
-from applications.SleepApplication.SleepApplication import SleepApplication
-from applications.ImageGen.ImageGen import ImageGen
+# from applications.SleepApplication.SleepApplication import SleepApplication
+# from applications.ImageGen.ImageGen import ImageGen
 from applications.DeepResearch.DeepResearch import DeepResearch
 from applications.Chatbot.Chatbot import Chatbot
-from applications.DspyTool.DspyTool import DspyTool
-from applications.LiveCaptions.LiveCaptions import LiveCaptions
-from applications.MCPServer.MCPServer import MCPServer
-from applications.Retriever.Retriever import Retriever
+# from applications.DspyTool.DspyTool import DspyTool
+# from applications.LiveCaptions.LiveCaptions import LiveCaptions
+# from applications.MCPServer.MCPServer import MCPServer
+# from applications.Retriever.Retriever import Retriever
 from src.workflow import Workflow
 import src.globals as globals
 
@@ -37,27 +37,27 @@ def main(args):
     # Create application instances
     
     # TODO: Yile, fix application type and instance tied up
-    sleepApplication1 = SleepApplication()
-    imageGen = ImageGen()
+    # sleepApplication1 = SleepApplication()
+    # imageGen = ImageGen()
     deepResearch = DeepResearch()
     chatbot = Chatbot()
-    liveCaptions = LiveCaptions()
-    mcpServer = MCPServer(mcp_trace_file=mcp_trace_file, config_file=config_file)
-    retriever = Retriever()
-    dspyTool = DspyTool()
+    # liveCaptions = LiveCaptions()
+    # mcpServer = MCPServer(mcp_trace_file=mcp_trace_file, config_file=config_file)
+    # retriever = Retriever()
+    # dspyTool = DspyTool()
     
     # Create workflow from YAML
     workflow = Workflow(config_file)
     
     # Register applications
-    workflow.register_application("SleepApplication", sleepApplication1)
-    workflow.register_application("ImageGen", imageGen)
+    # workflow.register_application("SleepApplication", sleepApplication1)
+    # workflow.register_application("ImageGen", imageGen)
     workflow.register_application("DeepResearch", deepResearch)
     workflow.register_application("Chatbot", chatbot)
-    workflow.register_application("LiveCaptions", liveCaptions)
-    workflow.register_application("MCPServer", mcpServer)
-    workflow.register_application("Retriever", retriever)
-    workflow.register_application("DspyTool", dspyTool)
+    # workflow.register_application("LiveCaptions", liveCaptions)
+    # workflow.register_application("MCPServer", mcpServer)
+    # workflow.register_application("Retriever", retriever)
+    # workflow.register_application("DspyTool", dspyTool)
     
     print("Registered applications:")
     for app_name, app in workflow.applications.items():
@@ -92,7 +92,7 @@ def main(args):
     print("Benchmark visualization saved to 'complex_workflow_benchmark.png'")
     
     #  Set up GPU memory monitoring
-    gpu_monitor = GpuMemoryMonitor(gpu_id=0, interval=0.01, results_dir=args.results)
+    gpu_monitor = GpuMemoryMonitor(gpu_id=0, interval=1, results_dir=args.results)
     import threading
     monitor_thread = threading.Thread(target=gpu_monitor.start_monitoring)
     monitor_thread.daemon = True
