@@ -13,9 +13,10 @@ source ~/anaconda3/etc/profile.d/conda.sh
 conda activate deepresearch
 cd $1
 
-export HF_TOKEN=<your-hf-token>
-export SERPAPI_API_KEY=<your-serpapi-api-key>
-export SERPER_API_KEY=<your-serper-api-key>
+# Serper API key in .env file
+set -a
+source /local1/rohithl/ConsumerBench/.env
+set +a
 
 # stdbuf -oL -eL 
 python3 run.py --port "$2" --model-id "$3" "$4"
