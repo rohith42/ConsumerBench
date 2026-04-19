@@ -38,6 +38,9 @@ class LlamaCpp:
         mps = kwargs.get('mps', 100)
         llama_cpp_path = kwargs.get('llamacpp_path', f"{repo_dir}/inference_backends/llama.cpp")
 
+        if not model.startswith("/"):
+            model = os.path.join(repo_dir, model)
+
         with self.lock:
             self.refcount += 1
             if self.refcount > 1:
