@@ -8,14 +8,14 @@ export PYTHONIOENCODING=utf-8  # Ensure proper encoding
 
 set -x
 
-source ~/anaconda3/etc/profile.d/conda.sh
+# source ~/anaconda3/etc/profile.d/conda.sh
+# conda activate deepresearch
 
-conda activate deepresearch
 cd $1
 
 # Serper API key in .env file
 set -a
-source /local1/rohithl/ConsumerBench/.env
+source "$(dirname "${BASH_SOURCE[0]}")/../../.env"
 set +a
 
 # stdbuf -oL -eL 
