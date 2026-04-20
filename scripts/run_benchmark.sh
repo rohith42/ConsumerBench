@@ -5,10 +5,10 @@
 # Example: ./run_benchmark.sh ConsumerBench/configs/workflow_chatbot.yml 0
 # Check if the config file is provided
 
-source ~/anaconda3/etc/profile.d/conda.sh
+# source ~/anaconda3/etc/profile.d/conda.sh
 
-# Change to your conda environment name
-conda activate consumerbench
+# # Change to your conda environment name
+# conda activate consumerbench
 
 SCRIPTS_DIR=`readlink -f $(dirname "$0")`
 SCRIPTS_DIR=$SCRIPTS_DIR/../monitors
@@ -49,89 +49,91 @@ mkdir -p $RESULTS_DIR
 # Read the config file
 cat ${RESULTS_DIR}/config.json | jq
 
+python3 -u ${BASE_DIR}/src/scripts/run_consumerbench.py --config $CONFIG_FILE --results $RESULTS_DIR
+
 # Run the benchmark
 # Check if nsight is enabled
-if [ $NSIGHT -eq 1 ]; then
-    echo "Running with Nsight Systems profiling..."
-    nsys profile --delay=50 --duration=60 --cuda-memory-usage=true --force-overwrite=true --trace=cuda,nvtx,osrt --gpu-metrics-devices=all -o memory_report --export=sqlite python3 -u ${BASE_DIR}/src/scripts/run_consumerbench.py --config $CONFIG_FILE --results $RESULTS_DIR
+# if [ $NSIGHT -eq 1 ]; then
+#     echo "Running with Nsight Systems profiling..."
+#     nsys profile --delay=50 --duration=60 --cuda-memory-usage=true --force-overwrite=true --trace=cuda,nvtx,osrt --gpu-metrics-devices=all -o memory_report --export=sqlite python3 -u ${BASE_DIR}/src/scripts/run_consumerbench.py --config $CONFIG_FILE --results $RESULTS_DIR
 
-    if [ $? -ne 0 ]; then
-        echo "Benchmark failed!"
-    fi
+#     if [ $? -ne 0 ]; then
+#         echo "Benchmark failed!"
+#     fi
 
-else
-    echo "Running without Nsight Systems profiling..."
+# else
+#     echo "Running without Nsight Systems profiling..."
 
-    # Get CPU utilization
-    ${SCRIPTS_DIR}/get_cpu_usage.sh ${RESULTS_DIR} &
-    sleep 1
-    cpu_usage_pid=`pgrep "get_cpu_usage"`
+#     # Get CPU utilization
+#     ${SCRIPTS_DIR}/get_cpu_usage.sh ${RESULTS_DIR} &
+#     sleep 1
+#     cpu_usage_pid=`pgrep "get_cpu_usage"`
 
-    echo "Setting up CPU Memory bandwidth monitoring..."
-    # Get CPU Memory bandwidth
-    tmux new-session -d "sudo pcm-memory 0.05 -silent -csv=${RESULTS_DIR}/memory-bw.csv"
-    # Check if the command is running
-    timeout 20 bash -c '
-        while ! pgrep "pcm-memory" >/dev/null; do sleep 1; done
-    '
+#     echo "Setting up CPU Memory bandwidth monitoring..."
+#     # Get CPU Memory bandwidth
+#     tmux new-session -d "sudo pcm-memory 0.05 -silent -csv=${RESULTS_DIR}/memory-bw.csv"
+#     # Check if the command is running
+#     timeout 20 bash -c '
+#         while ! pgrep "pcm-memory" >/dev/null; do sleep 1; done
+#     '
 
-    if [ $? -eq 124 ]; then
-        echo "Timed out waiting for pcm-memory"
-    else
-        echo "pcm-memory started!"
-    fi
-    pcm_memory_pid=`pgrep "pcm-memory"`
+#     if [ $? -eq 124 ]; then
+#         echo "Timed out waiting for pcm-memory"
+#     else
+#         echo "pcm-memory started!"
+#     fi
+#     pcm_memory_pid=`pgrep "pcm-memory"`
 
-    echo "Setting up GPU compute and mem utilization monitoring..."
-    # Get GPU compute and mem utilization
-    ${SCRIPTS_DIR}/record_gpu_mem_compute.sh ${RESULTS_DIR} &
-    sleep 1
-    gpu_utilization_pid=`pgrep "dcgmi"`
+#     echo "Setting up GPU compute and mem utilization monitoring..."
+#     # Get GPU compute and mem utilization
+#     ${SCRIPTS_DIR}/record_gpu_mem_compute.sh ${RESULTS_DIR} &
+#     sleep 1
+#     gpu_utilization_pid=`pgrep "dcgmi"`
 
 
-    echo "Setting up power utilization monitoring..."
-    # Get power utilization
-    tmux new-session -d sudo -E "$(which python3)" ${SCRIPTS_DIR}/record_power_usage.py -o ${RESULTS_DIR}/power_data.csv -s ${start_time}
-    power_pid=`pgrep -fo record_power`
+#     echo "Setting up power utilization monitoring..."
+#     # Get power utilization
+#     tmux new-session -d sudo -E "$(which python3)" ${SCRIPTS_DIR}/record_power_usage.py -o ${RESULTS_DIR}/power_data.csv -s ${start_time}
+#     power_pid=`pgrep -fo record_power`
 
-    echo "--------------------------------"
-    echo "Result directory":
-    echo "$RESULTS_DIR"
-    echo "--------------------------------"
-    python3 -u ${BASE_DIR}/src/scripts/run_consumerbench.py --config $CONFIG_FILE --results $RESULTS_DIR
-    # Check if the benchmark was successful
-    if [ $? -ne 0 ]; then
-        echo "Benchmark failed!"
-    fi
+#     echo "--------------------------------"
+#     echo "Result directory":
+#     echo "$RESULTS_DIR"
+#     echo "--------------------------------"
+#     python3 -u ${BASE_DIR}/src/scripts/run_consumerbench.py --config $CONFIG_FILE --results $RESULTS_DIR
+#     # Check if the benchmark was successful
+#     if [ $? -ne 0 ]; then
+#         echo "Benchmark failed!"
+#     fi
 
-    sleep 2
-    # Kill the background processes
-    kill -9 $cpu_usage_pid
-    sudo kill -9 $pcm_memory_pid
-    kill -9 $gpu_utilization_pid
-    sudo kill -9 $power_pid
+#     sleep 2
+#     # Kill the background processes
+#     kill -9 $cpu_usage_pid
+#     sudo kill -9 $pcm_memory_pid
+#     kill -9 $gpu_utilization_pid
+#     sudo kill -9 $power_pid
 
-    sleep 2
-fi
+#     sleep 2
+# fi
 
-if [ $NSIGHT -eq 1 ]; then
-    # Move the generated report to the results directory
-    mv memory_report.sqlite $RESULTS_DIR/memory_report.sqlite
-    mv memory_report.nsys-rep $RESULTS_DIR/memory_report.nsys-rep
-    python3 ${SCRIPTS_DIR}/process_nsight_cpu.py $RESULTS_DIR/memory_report.sqlite $RESULTS_DIR
-    python3 ${SCRIPTS_DIR}/process_nsight_gpu.py $RESULTS_DIR/memory_report.sqlite $RESULTS_DIR
-    rm $RESULTS_DIR/memory_report.sqlite
-    rm $RESULTS_DIR/memory_report.nsys-rep
-fi
+# if [ $NSIGHT -eq 1 ]; then
+#     # Move the generated report to the results directory
+#     mv memory_report.sqlite $RESULTS_DIR/memory_report.sqlite
+#     mv memory_report.nsys-rep $RESULTS_DIR/memory_report.nsys-rep
+#     python3 ${SCRIPTS_DIR}/process_nsight_cpu.py $RESULTS_DIR/memory_report.sqlite $RESULTS_DIR
+#     python3 ${SCRIPTS_DIR}/process_nsight_gpu.py $RESULTS_DIR/memory_report.sqlite $RESULTS_DIR
+#     rm $RESULTS_DIR/memory_report.sqlite
+#     rm $RESULTS_DIR/memory_report.nsys-rep
+# fi
 
 echo "start_time: $start_time"
 
-# Create plots
-python3 ${PLOT_SCRIPTS_DIR}/plot_cpu_compute_usage.py --input_file_cpu ${RESULTS_DIR}/cpu_usage.log --input_file_mem ${RESULTS_DIR}/memory-bw.csv -o ${RESULTS_DIR}/cpu_compute_usage.png -s $start_time
-python3 ${PLOT_SCRIPTS_DIR}/plot_cpu_mem_usage.py --input_file_cpu ${RESULTS_DIR}/cpu_usage.log --input_file_mem ${RESULTS_DIR}/memory-bw.csv -o ${RESULTS_DIR}/cpu_mem_usage.png -s $start_time
-python3 ${PLOT_SCRIPTS_DIR}/dcgm_plotter_gpu_compute.py ${RESULTS_DIR}/gpu_utilization.log -o ${RESULTS_DIR}/gpu_compute_usage.png -s $start_time
-python3 ${PLOT_SCRIPTS_DIR}/dcgm_plotter_gpu_mem.py ${RESULTS_DIR}/gpu_utilization.log -o ${RESULTS_DIR}/gpu_mem_usage.png -s $start_time
-python3 ${PLOT_SCRIPTS_DIR}/plot_power_usage.py --input ${RESULTS_DIR}/power_data.csv -o ${RESULTS_DIR}/power_usage.png
+# # Create plots
+# python3 ${PLOT_SCRIPTS_DIR}/plot_cpu_compute_usage.py --input_file_cpu ${RESULTS_DIR}/cpu_usage.log --input_file_mem ${RESULTS_DIR}/memory-bw.csv -o ${RESULTS_DIR}/cpu_compute_usage.png -s $start_time
+# python3 ${PLOT_SCRIPTS_DIR}/plot_cpu_mem_usage.py --input_file_cpu ${RESULTS_DIR}/cpu_usage.log --input_file_mem ${RESULTS_DIR}/memory-bw.csv -o ${RESULTS_DIR}/cpu_mem_usage.png -s $start_time
+# python3 ${PLOT_SCRIPTS_DIR}/dcgm_plotter_gpu_compute.py ${RESULTS_DIR}/gpu_utilization.log -o ${RESULTS_DIR}/gpu_compute_usage.png -s $start_time
+# python3 ${PLOT_SCRIPTS_DIR}/dcgm_plotter_gpu_mem.py ${RESULTS_DIR}/gpu_utilization.log -o ${RESULTS_DIR}/gpu_mem_usage.png -s $start_time
+# python3 ${PLOT_SCRIPTS_DIR}/plot_power_usage.py --input ${RESULTS_DIR}/power_data.csv -o ${RESULTS_DIR}/power_usage.png
 
 
     
