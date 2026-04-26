@@ -11,5 +11,5 @@
 	url = https://github.com/ggml-org/llama.cpp
 [submodule "applications/DeepResearch/smolagents"]
 	path = applications/DeepResearch/smolagents
-	url = https://github.com/huggingface/smolagents
+	url = https://github.com/rohith42/smolagents.git
 	branch = os-llm
