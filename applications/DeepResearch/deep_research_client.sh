@@ -8,8 +8,8 @@ export PYTHONIOENCODING=utf-8  # Ensure proper encoding
 
 set -x
 
-# source ~/anaconda3/etc/profile.d/conda.sh
-# conda activate deepresearch
+source $_CONDA_ROOT/etc/profile.d/conda.sh
+conda activate deepresearch
 
 cd $1
 

@@ -5,10 +5,8 @@
 # Example: ./run_benchmark.sh ConsumerBench/configs/workflow_chatbot.yml 0
 # Check if the config file is provided
 
-# source ~/anaconda3/etc/profile.d/conda.sh
-
-# # Change to your conda environment name
-# conda activate consumerbench
+source $_CONDA_ROOT/etc/profile.d/conda.sh
+conda activate consumerbench
 
 SCRIPTS_DIR=`readlink -f $(dirname "$0")`
 SCRIPTS_DIR=$SCRIPTS_DIR/../monitors
