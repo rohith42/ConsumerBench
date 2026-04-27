@@ -13,12 +13,17 @@ Currently, the ConsumerBench repository contains with 4 applications: Chatbot, D
 
 Following are the steps to install the applications, setup the inference backend with the model and the datasets specified in the paper. While we specify the model and dataset here which are used in the paper, users are free to download their own models and datasets to use with the applications. 
 
+Before you start, intialize the submodules for each application with:
+```bash
+git submodule update --init --recursive
+```
+
 ### Chatbot 
 #### Install application
 Installing application involves setting up llama.cpp server.
 ```
 cd <repo-dir>/inference_backends/llama.cpp
-cmake -B build -DGGML_CUDA=ON -DGGML_CUDA_F16=1 -DCMAKE_CUDA_ARCHITECTURES="75"  -DCMAKE_CUDA_COMPILER=/usr/local/cuda-12.8/bin/nvcc
+cmake -B build -DGGML_CUDA=ON -DGGML_CUDA_F16=1 -DCMAKE_CUDA_ARCHITECTURES="75"  -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc
 cd build
 make -j32
 ```
