@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
 import numpy as np
 import re
 from datetime import datetime
@@ -177,23 +176,25 @@ def main():
     parser = argparse.ArgumentParser(description='Parse stat output and create performance plots.')
     parser.add_argument('-o', '--output', help='Path to save the output plot file (optional)')
     parser.add_argument('--input_file_cpu', help='Path to the stat output file', required=True)
-    parser.add_argument('--input_file_mem', help='Path to the stat output file', required=True)
+    # parser.add_argument('--input_file_mem', help='Path to the stat output file', required=True)
     parser.add_argument('-s', '--start_time', help='Start time for relative timestamps (optional)')
     args = parser.parse_args()
 
     if args.start_time:
-        start_time = datetime.strptime(args.start_time, '%Y-%m-%d_%H:%M:%S')    
+        start_time = datetime.strptime(args.start_time, '%Y-%m-%d_%H:%M:%S')
+    else:
+        start_time = datetime.now()
 
     # Parse the data
     timestamps_cpu, cpu_throughput = parse_cpu_output(args.input_file_cpu, start_time)
-    timestamps_mem, memory_bandwidth = parse_mem_output(args.input_file_mem, start_time)
+    # timestamps_mem, memory_bandwidth = parse_mem_output(args.input_file_mem, start_time)
     
     if not timestamps_cpu:
         print("No valid data found in the input file!")
         return
     
     # Create and display/save the plots
-    create_plots(timestamps_cpu, cpu_throughput, timestamps_mem, memory_bandwidth, args.output)
+    create_plots(timestamps_cpu, cpu_throughput, None, None, args.output)
 
 if __name__ == "__main__":
     main()
