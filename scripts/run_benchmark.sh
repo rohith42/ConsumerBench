@@ -49,6 +49,18 @@ cat ${RESULTS_DIR}/config.json | jq
 
 python3 -u ${BASE_DIR}/src/scripts/run_consumerbench.py --config $CONFIG_FILE --results $RESULTS_DIR
 
+if [ $NSIGHT -eq 0 ]; then
+    python scripts/result_processing/parse-results-chatbot-log.py ${RESULTS_DIR}/task_chat1_u0_perf.log
+    python scripts/result_processing/parse-results-deepresearch-log.py ${RESULTS_DIR}/task_deep1_u0_perf.log
+elif [ $NSIGHT -eq 1 ]; then
+    python scripts/result_processing/parse-results-chatbot-log.py ${RESULTS_DIR}/task_chat1_u0_perf.log
+elif [ $NSIGHT -eq 2 ]; then
+    python scripts/result_processing/parse-results-deepresearch-log.py ${RESULTS_DIR}/task_deep1_u0_perf.log
+else
+    echo "Invalid value for NSIGHT. Please use 0 (chatbot + deepresearch), 1 (chatbot only), or 2 (deepresearch only)."
+    exit 1
+fi
+
 # Run the benchmark
 # Check if nsight is enabled
 # if [ $NSIGHT -eq 1 ]; then
