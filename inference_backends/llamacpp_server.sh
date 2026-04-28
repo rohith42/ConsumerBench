@@ -40,7 +40,7 @@ if [ "$device" == "gpu" ]; then
 
     # Set environment variable to ensure the application uses MPS
     # The actual GPU device number should be set to match your configuration
-    export CUDA_VISIBLE_DEVICES=0
+    # export CUDA_VISIBLE_DEVICES=4
 
     # nsys profile --trace=cuda,nvtx,osrt --cuda-memory-usage=true --gpu-metrics-devices=all --stats=true --force-overwrite=true --python-backtrace=cuda --cudabacktrace=true build/bin/llama-server --port ${api_port} -m ${model} -ngl 99 --parallel 8 -c 4096 -nkvo &
     # nsys profile --trace=cuda,nvtx,osrt --cuda-memory-usage=true --gpu-metrics-devices=all --stats=true --force-overwrite=true --python-backtrace=cuda --cudabacktrace=true build/bin/llama-server --port ${api_port} -m ${model} -ngl 99 --parallel 8 -c 4096 &
@@ -49,11 +49,11 @@ if [ "$device" == "gpu" ]; then
     stdbuf -oL -eL build/bin/llama-server --port ${api_port} -m ${model} -ngl 99 --parallel 4 -c 131072 &
     # stdbuf -oL -eL build/bin/llama-server --port ${api_port} -m ${model} -ngl 99 -c 64000 --parallel 8 &
 else
-    export CUDA_VISIBLE_DEVICES=""
+    # export CUDA_VISIBLE_DEVICES=""
     stdbuf -oL -eL build/bin/llama-server --port ${api_port} -m ${model} -ngl 0 --parallel 4 -c 16384 &
 fi
 
-export CUDA_VISIBLE_DEVICES=0
+# export CUDA_VISIBLE_DEVICES=7
 SERVER_PID=$!
 
 echo "SERVER_PID=$SERVER_PID"
