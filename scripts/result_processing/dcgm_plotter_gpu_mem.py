@@ -1,9 +1,11 @@
+import os
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
 import numpy as np
 import re
 from datetime import datetime
 import argparse
+
+GPU = os.getenv('CUDA_VISIBLE_DEVICES', '')
 
 def parse_dcgm_output(file_path, start_time = None):
     """Parse DCGM output file with timestamps and extract metrics."""
@@ -19,7 +21,7 @@ def parse_dcgm_output(file_path, start_time = None):
     # Parse each line
     for line in lines:
         # Skip header lines but catch lines with actual data
-        if '[' in line and 'GPU' in line and len(line.split()) >= 5:
+        if '[' in line and f"GPU {GPU}" in line and len(line.split()) >= 5:
             # Extract timestamp
             timestamp_match = re.search(r'\[(.*?)\]', line)
             if not timestamp_match:
@@ -102,7 +104,7 @@ def create_plots(timestamps, sm_active, sm_occupied, memory_bandwidth, output_fi
     #     ax.spines['right'].set_visible(False)
         
     # Add overall title
-    # plt.suptitle('GPU Memory Bandwidth Over Time', fontsize=18, y=0.98)
+    plt.suptitle(f'GPU {GPU} BW Utilization Over Time', fontsize=18, y=0.98)
     
     # Adjust layout
     plt.tight_layout()
