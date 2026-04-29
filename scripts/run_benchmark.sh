@@ -137,7 +137,8 @@ python3 ${PLOT_SCRIPTS_DIR}/plot_cpu_compute_usage.py --input_file_cpu ${RESULTS
 python3 ${PLOT_SCRIPTS_DIR}/dcgm_plotter_gpu_compute.py ${RESULTS_DIR}/gpu_utilization.log -o ${RESULTS_DIR}/gpu_compute_usage.png -s $start_time
 python3 ${PLOT_SCRIPTS_DIR}/dcgm_plotter_gpu_mem.py ${RESULTS_DIR}/gpu_utilization.log -o ${RESULTS_DIR}/gpu_mem_usage.png -s $start_time
 # python3 ${PLOT_SCRIPTS_DIR}/plot_power_usage.py --input ${RESULTS_DIR}/power_data.csv -o ${RESULTS_DIR}/power_usage.png
-python scripts/result_processing/parse-results-chatbot-log.py ${RESULTS_DIR}/task_chat1_u0_perf.log
+python3 ${PLOT_SCRIPTS_DIR}/parse-results-chatbot-log.py ${RESULTS_DIR}/task_chat1_u0_perf.log
+python3 ${PLOT_SCRIPTS_DIR}/gantt_chart.py ${RESULTS_DIR}
 
 
     
