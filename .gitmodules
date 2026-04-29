@@ -13,3 +13,7 @@
 	path = applications/DeepResearch/smolagents
 	url = https://github.com/rohith42/smolagents.git
 	branch = os-llm
+[submodule "inference_backends/vllm"]
+	path = inference_backends/vllm
+	url = git@github.com:rohith42/vllm.git
+	branch = v0.19.1-branch
