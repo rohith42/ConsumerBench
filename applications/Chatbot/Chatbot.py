@@ -15,12 +15,13 @@ from applications.application import Application
 import src.utils as utils
 import src.globals as globals
 from inference_backends.Llamacpp import LlamaCpp
+from inference_backends.Vllm import Vllm
 
 class Chatbot(Application):
     def __init__(self):
         super().__init__()
         self.chatbot_prompts = []
-        self.backend = LlamaCpp()
+        self.backend = None
 
     def run_setup(self, *args, **kwargs):
         print("Chatbot setup")
@@ -28,9 +29,17 @@ class Chatbot(Application):
         model = kwargs.get('model', self.get_default_config()['model'])
         device = kwargs.get('device', self.get_default_config()['device'])
         mps = kwargs.get('mps', self.get_default_config()['mps'])
-        llamacpp_path = kwargs.get('llamacpp_path', self.get_default_config()['llamacpp_path'])
+        backend_type = kwargs.get('backend', self.get_default_config()['backend'])
 
-        self.backend.launch_backend(api_port=api_port, model=model, device=device, mps=mps, llamacpp_path=llamacpp_path)
+        if backend_type == 'vllm':
+            self.backend = Vllm()
+            vllm_path = kwargs.get('vllm_path', self.get_default_config()['vllm_path'])
+            self.backend.launch_backend(api_port=api_port, model=model, device=device, vllm_path=vllm_path)
+        else:
+            self.backend = LlamaCpp()
+            llamacpp_path = kwargs.get('llamacpp_path', self.get_default_config()['llamacpp_path'])
+            self.backend.launch_backend(api_port=api_port, model=model, device=device, mps=mps, llamacpp_path=llamacpp_path)
+
         print(f"Chatbot setup complete")
 
         return {"status": "setup_complete", "config": self.config}
@@ -45,6 +54,7 @@ class Chatbot(Application):
     def run_application(self, *args, **kwargs):
         print(f"Chatbot application")
         api_port = kwargs.get('api_port', self.get_default_config()['api_port'])
+        model = kwargs.get('model', self.get_default_config()['model'])
 
         chatbot_prompt = self.chatbot_prompts.pop(0)
         chatbot_prompts = [chatbot_prompt]
@@ -52,22 +62,26 @@ class Chatbot(Application):
         api_url = f"http://127.0.0.1:{api_port}/v1/completions"
 
         ttft = None
+        token_count = None
+        first_token_time = None
 
         start_time = time.time()
 
         for prompt in chatbot_prompts:
             payload = {
+                "model": model,
                 "prompt": prompt,
                 "max_tokens": 215,
                 "temperature": 0,
                 "top_p": 0.9,
                 "seed": 141293,
-                "stream": True
+                "stream": True,
+                "stream_options": {"include_usage": True}
             }
             headers = {
                 "Content-Type": "application/json"
             }
-            
+
             try:
                 with requests.post(api_url, json=payload, headers=headers, stream=True) as response:
                     if response.status_code != 200:
@@ -76,7 +90,6 @@ class Chatbot(Application):
 
                     for line in response.iter_lines(decode_unicode=True):
                         if line:
-                            # print(f"Script output: {line.strip()}")
                             current_time = time.time()
                             if ttft is None:
                                 ttft = current_time - start_time
@@ -84,17 +97,19 @@ class Chatbot(Application):
                                 print(f"Time to first token: {ttft:.4f} seconds")
 
                             try:
-                                # Clean and parse the JSON
                                 clean_line = line.strip().replace("data: ", "")
                                 if clean_line == "[DONE]":
                                     break
 
                                 data = json.loads(clean_line)
 
-                                # Exit if finish_reason appears
-                                if data.get("choices") and data["choices"][0].get("finish_reason"):
-                                    token_count = data.get("usage", {}).get("completion_tokens")
-                                    break
+                                # Capture usage from any chunk that has it (null-safe).
+                                # vLLM sends usage in a separate final chunk after finish_reason;
+                                # llamacpp includes it in the finish_reason chunk.
+                                usage = data.get("usage") or {}
+                                if usage.get("completion_tokens") is not None:
+                                    token_count = usage["completion_tokens"]
+
                             except json.JSONDecodeError:
                                 continue
 
@@ -106,8 +121,8 @@ class Chatbot(Application):
         print(f"Completion tokens: {token_count}")
 
         print(f"{end_time-first_token_time}, token counts: {token_count}")
-        tpot = (end_time - first_token_time) / token_count if token_count > 0 else None    
-        itl = (end_time - start_time) / token_count if token_count > 0 else None
+        tpot = (end_time - first_token_time) / token_count if token_count else None
+        itl = (end_time - start_time) / token_count if token_count else None
 
         return {"status": "chatbot_complete", "ttft": ttft, "tpot": tpot, "itl": itl}
 
@@ -137,6 +152,8 @@ class Chatbot(Application):
             "mps": 100,
             "api_port": 8080,
             "llamacpp_path": f"{repo_dir}/inference_backends/llama.cpp",
-            "dataset": f"lmsys/lmsys-chat-1m"
+            "dataset": f"lmsys/lmsys-chat-1m",
+            "backend": "llamacpp",
+            "vllm_path": f"{repo_dir}/inference_backends/vllm"
         }
     

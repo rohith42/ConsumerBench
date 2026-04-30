@@ -12,22 +12,30 @@ from applications.application import Application
 import src.utils as utils
 import src.globals as globals
 from inference_backends.Llamacpp import LlamaCpp
+from inference_backends.Vllm import Vllm
 
 class DeepResearch(Application):
     def __init__(self):
         super().__init__()
         self.deep_research_prompts = []
-        self.backend = LlamaCpp()
+        self.backend = None
 
     def run_setup(self, *args, **kwargs):
         print("DeepResearch setup")
         api_port = kwargs.get('api_port', self.get_default_config()['api_port'])
-        model = kwargs.get('model', self.get_default_config()['server_model'])
+        model = kwargs.get('model', kwargs.get('server_model', self.get_default_config()['server_model']))
         device = kwargs.get('device', self.get_default_config()['device'])
         mps = kwargs.get('mps', self.get_default_config()['mps'])
-        llamacpp_path = kwargs.get('llamacpp_path', self.get_default_config()['llamacpp_path'])
+        backend_type = kwargs.get('backend', self.get_default_config()['backend'])
 
-        self.backend.launch_backend(api_port=api_port, model=model, device=device, mps=mps, llamacpp_path=llamacpp_path)
+        if backend_type == 'vllm':
+            self.backend = Vllm()
+            vllm_path = kwargs.get('vllm_path', self.get_default_config()['vllm_path'])
+            self.backend.launch_backend(api_port=api_port, model=model, device=device, vllm_path=vllm_path)
+        else:
+            self.backend = LlamaCpp()
+            llamacpp_path = kwargs.get('llamacpp_path', self.get_default_config()['llamacpp_path'])
+            self.backend.launch_backend(api_port=api_port, model=model, device=device, mps=mps, llamacpp_path=llamacpp_path)
 
         print(f"DeepResearch setup complete")
 
@@ -73,6 +81,8 @@ class DeepResearch(Application):
             "mps": 100,
             "api_port": 8080,
             "llamacpp_path": f"{repo_dir}/inference_backends/llama.cpp",
-            "client_model": f"openai/meta-llama/Llama-3.2-3B-Instruct"
+            "client_model": f"openai/meta-llama/Llama-3.2-3B-Instruct",
+            "backend": "llamacpp",
+            "vllm_path": f"{repo_dir}/inference_backends/vllm"
         }
     
