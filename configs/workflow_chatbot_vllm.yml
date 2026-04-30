@@ -1,0 +1,12 @@
+chat1:
+    model: meta-llama/Llama-3.2-3B-Instruct
+    num_requests: 20
+    device: gpu
+    type: Chatbot
+    backend: vllm
+    vllm_path: inference_backends/vllm
+    api_port: 8080
+
+workflows:
+    chat_summary:
+        uses: chat1
