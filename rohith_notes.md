@@ -47,6 +47,44 @@ models/Llama-3.2-3B-Instruct-GGUF/Llama-3.2-3B-Instruct-f16.gguf
 
 5. [Application setup steps](./applications/README.md) (Chatbot, Deep Research)
 
+### Installing vLLM
+
+```bash
+git checkout rohith/vllm
+
+# Ensure the rohith42/vllm repo is cloned within ConsumerBench
+git submodule update --init --recursive
+cd inference_backends/vllm
+
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export UV_CACHE_DIR=/local1/<username>/.cache/uv  # Prob want to set this in ~/.bashrc
+
+# Deactivate any existing virtual environments
+deactivate
+conda deactivate
+
+# Create uv venv 
+uv venv vllm --python 3.12
+source .venv/bin/activate
+
+# Install vllm dependencies (might take a while)
+VLLM_USE_PRECOMPILED=1 uv pip install --editable . --torch-backend=auto
+
+# Once that's installed you can validate everything working as expected
+# by trying to serve a model with vLLM
+# Make sure to set your HF_HOME env var to somewhere in local1:
+export HF_HOME=/local1/rohithl/hf
+
+vllm serve meta-llama/Llama-3.2-3B-Instruct
+
+# If you run into an error that's like CUBLAS_STATUS_INVALID_VALUE, then try running:
+LD_LIBRARY_PATH="" vllm serve meta-llama/Llama-3.2-3B-Instruct
+
+# If everything works correctly, after a bunch of INFO logs from the
+# vllm server, you should see an "application startup complete."
+```
+
 
 ### Installing necessary programs
 
