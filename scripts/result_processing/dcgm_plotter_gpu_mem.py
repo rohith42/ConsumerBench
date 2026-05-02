@@ -78,7 +78,7 @@ def create_plots(timestamps, sm_active, sm_occupied, memory_bandwidth, output_fi
             
     # Plot Memory Bandwidth
     ax2.fill_between(timestamps, memory_bandwidth, color=memory_color, linewidth=2)
-    ax2.set_title('GPU Memory Bandwidth', fontsize=16)
+    # ax2.set_title('GPU Memory Bandwidth', fontsize=16)
     ax2.set_ylabel('Bandwidth % (DRAMA × 100)', fontsize=14)
     ax2.set_xlabel('Time (seconds)', fontsize=14)
     ax2.grid(True, linestyle='--', alpha=0.7)

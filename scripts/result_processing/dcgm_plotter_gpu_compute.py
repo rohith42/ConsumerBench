@@ -70,7 +70,7 @@ def create_plots(timestamps, sm_active, sm_occupied, memory_bandwidth, output_fi
 
     # fig, (ax1) = plt.subplots(1, 1, figsize=(9, 4))
     # for MPS and no MPS
-    fig, (ax1) = plt.subplots(1, 1, figsize=(6, 3))
+    fig, (ax1) = plt.subplots(1, 1, figsize=(9, 4))
     # Style settings
     plt.style.use('ggplot')
     
@@ -108,7 +108,7 @@ def create_plots(timestamps, sm_active, sm_occupied, memory_bandwidth, output_fi
 
     # ax1.legend(loc='upper center', frameon=False, bbox_to_anchor=(0.5, 1.20), ncol=2, fontsize=18)
     # for MPS and no MPS
-    ax1.legend(loc='upper center', frameon=False, bbox_to_anchor=(0.5, 1.4), ncol=1, fontsize=22)
+    ax1.legend(loc='upper center', frameon=False, bbox_to_anchor=(0.5, 1.4), ncol=2, fontsize=18)
         
     # Format both axes
     # for ax in [ax1, ax2]:
