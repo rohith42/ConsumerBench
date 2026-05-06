@@ -71,7 +71,7 @@ class Chatbot(Application):
             payload = {
                 "model": model,
                 "prompt": prompt,
-                "max_tokens": 215,
+                "max_tokens": 256,
                 "temperature": 0,
                 "top_p": 0.9,
                 "seed": 141293,
@@ -124,7 +124,7 @@ class Chatbot(Application):
         tpot = (end_time - first_token_time) / token_count if token_count else None
         itl = (end_time - start_time) / token_count if token_count else None
 
-        return {"status": "chatbot_complete", "ttft": ttft, "tpot": tpot, "itl": itl}
+        return {"status": "chatbot_complete", "ttft": ttft, "tpot": tpot, "itl": itl, "completion_tokens": token_count}
 
     def load_dataset(self, *args, **kwargs):
         """Load the chatbot dataset"""

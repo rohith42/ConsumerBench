@@ -45,11 +45,11 @@ def parse_results_from_file(file_path, generate_plot=True):
         with open(output_filename, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
             # Write header
-            writer.writerow(['request_num', 'ttft', 'tpot', 'itl'])
+            writer.writerow(['request_num', 'ttft', 'tpot', 'itl', 'completion_tokens'])
             
             # Write data rows
             for i, metrics in enumerate(metrics_dicts, 1):
-                writer.writerow([i, metrics['ttft'], metrics['tpot'], metrics['itl']])
+                writer.writerow([i, metrics['ttft'], metrics['tpot'], metrics['itl'], metrics['completion_tokens']])
         
         print(f"Successfully created {output_filename} with {len(metrics_dicts)} requests")
         
