@@ -9,7 +9,7 @@ source $_CONDA_ROOT/etc/profile.d/conda.sh
 conda activate consumerbench
 
 SCRIPTS_DIR=`readlink -f $(dirname "$0")`
-SCRIPTS_DIR=$SCRIPTS_DIR/../monitors
+MONITORS_DIR=$SCRIPTS_DIR/../monitors
 BASE_DIR=`readlink -f $SCRIPTS_DIR/..`
 PLOT_SCRIPTS_DIR=$BASE_DIR/scripts/result_processing
 
@@ -44,7 +44,7 @@ cur_day=$(date +%b%d_%Y)
 cur_time=$(date +%H_%M_%S)
 start_time=$(date +%Y-%m-%d_%H:%M:%S)
 echo "start_time: $start_time"
-RESULT_DIR_NAME=$(python3 ${SCRIPTS_DIR}/yml_to_json.py $CONFIG_FILE ${BASE_DIR}/results ${cur_day} ${cur_time})
+RESULT_DIR_NAME=$(python3 ${MONITORS_DIR}/yml_to_json.py $CONFIG_FILE ${BASE_DIR}/results ${cur_day} ${cur_time})
 RESULTS_DIR="${BASE_DIR}/results/${cur_day}/${RESULT_DIR_NAME}${cur_time}"
 
 # create a results directory based on the current date and time
@@ -57,7 +57,7 @@ cat ${RESULTS_DIR}/config.json | jq
 # Check if nsight is enabled
 if [ $NSIGHT -eq 1 ]; then
     echo "Running with Nsight Systems profiling..."
-    nsys profile --delay=50 --duration=60 --cuda-memory-usage=true --force-overwrite=true --trace=cuda,nvtx,osrt --gpu-metrics-devices=all -o memory_report --export=sqlite python3 -u ${BASE_DIR}/src/scripts/run_consumerbench.py --config $CONFIG_FILE --results $RESULTS_DIR
+    nsys profile --cuda-memory-usage=true --force-overwrite=true --trace=cuda,nvtx,osrt,cublas,cudnn --gpu-metrics-devices=$CUDA_VISIBLE_DEVICES -o memory_report --export=sqlite python3 -u ${BASE_DIR}/src/scripts/run_consumerbench.py --config $CONFIG_FILE --results $RESULTS_DIR
 
     if [ $? -ne 0 ]; then
         echo "Benchmark failed!"
@@ -67,7 +67,7 @@ else
     echo "Running without Nsight Systems profiling..."
 
     # Get CPU utilization
-    ${SCRIPTS_DIR}/get_cpu_usage.sh ${RESULTS_DIR} &
+    ${MONITORS_DIR}/get_cpu_usage.sh ${RESULTS_DIR} &
     sleep 1
     cpu_usage_pid=`pgrep "get_cpu_usage"`
 
@@ -88,7 +88,7 @@ else
 
     echo "Setting up GPU compute and mem utilization monitoring..."
     # Get GPU compute and mem utilization
-    ${SCRIPTS_DIR}/record_gpu_mem_compute.sh ${RESULTS_DIR} &
+    ${MONITORS_DIR}/record_gpu_mem_compute.sh ${RESULTS_DIR} &
     sleep 1
     gpu_utilization_pid=`pgrep "dcgmi"`
 
@@ -122,26 +122,25 @@ if [ $NSIGHT -eq 1 ]; then
     # Move the generated report to the results directory
     mv memory_report.sqlite $RESULTS_DIR/memory_report.sqlite
     mv memory_report.nsys-rep $RESULTS_DIR/memory_report.nsys-rep
-    python3 ${SCRIPTS_DIR}/process_nsight_cpu.py $RESULTS_DIR/memory_report.sqlite $RESULTS_DIR
-    python3 ${SCRIPTS_DIR}/process_nsight_gpu.py $RESULTS_DIR/memory_report.sqlite $RESULTS_DIR
-    rm $RESULTS_DIR/memory_report.sqlite
-    rm $RESULTS_DIR/memory_report.nsys-rep
+    python3 ${PLOT_SCRIPTS_DIR}/process_nsight_cpu.py $RESULTS_DIR/memory_report.sqlite $RESULTS_DIR
+    python3 ${PLOT_SCRIPTS_DIR}/process_nsight_gpu.py $RESULTS_DIR/memory_report.sqlite $RESULTS_DIR
+    # rm $RESULTS_DIR/memory_report.sqlite
+    # rm $RESULTS_DIR/memory_report.nsys-rep
+else
+    # python3 ${PLOT_SCRIPTS_DIR}/plot_cpu_compute_usage.py --input_file_cpu ${RESULTS_DIR}/cpu_usage.log --input_file_mem ${RESULTS_DIR}/memory-bw.csv -o ${RESULTS_DIR}/cpu_compute_usage.png -s $start_time
+    python3 ${PLOT_SCRIPTS_DIR}/plot_cpu_compute_usage.py --input_file_cpu ${RESULTS_DIR}/cpu_usage.log -o ${RESULTS_DIR}/cpu_compute_usage.png -s $start_time
+    # python3 ${PLOT_SCRIPTS_DIR}/plot_cpu_mem_usage.py --input_file_cpu ${RESULTS_DIR}/cpu_usage.log --input_file_mem ${RESULTS_DIR}/memory-bw.csv -o ${RESULTS_DIR}/cpu_mem_usage.png -s $start_time
+    python3 ${PLOT_SCRIPTS_DIR}/dcgm_plotter_gpu_compute.py ${RESULTS_DIR}/gpu_utilization.log -o ${RESULTS_DIR}/gpu_compute_usage.png -s $start_time
+    python3 ${PLOT_SCRIPTS_DIR}/dcgm_plotter_gpu_mem.py ${RESULTS_DIR}/gpu_utilization.log -o ${RESULTS_DIR}/gpu_mem_usage.png -s $start_time
+    # python3 ${PLOT_SCRIPTS_DIR}/plot_power_usage.py --input ${RESULTS_DIR}/power_data.csv -o ${RESULTS_DIR}/power_usage.png
 fi
 
 
-
 # # Create plots
-# python3 ${PLOT_SCRIPTS_DIR}/plot_cpu_compute_usage.py --input_file_cpu ${RESULTS_DIR}/cpu_usage.log --input_file_mem ${RESULTS_DIR}/memory-bw.csv -o ${RESULTS_DIR}/cpu_compute_usage.png -s $start_time
-python3 ${PLOT_SCRIPTS_DIR}/plot_cpu_compute_usage.py --input_file_cpu ${RESULTS_DIR}/cpu_usage.log -o ${RESULTS_DIR}/cpu_compute_usage.png -s $start_time
-# python3 ${PLOT_SCRIPTS_DIR}/plot_cpu_mem_usage.py --input_file_cpu ${RESULTS_DIR}/cpu_usage.log --input_file_mem ${RESULTS_DIR}/memory-bw.csv -o ${RESULTS_DIR}/cpu_mem_usage.png -s $start_time
-python3 ${PLOT_SCRIPTS_DIR}/dcgm_plotter_gpu_compute.py ${RESULTS_DIR}/gpu_utilization.log -o ${RESULTS_DIR}/gpu_compute_usage.png -s $start_time
-python3 ${PLOT_SCRIPTS_DIR}/dcgm_plotter_gpu_mem.py ${RESULTS_DIR}/gpu_utilization.log -o ${RESULTS_DIR}/gpu_mem_usage.png -s $start_time
-# python3 ${PLOT_SCRIPTS_DIR}/plot_power_usage.py --input ${RESULTS_DIR}/power_data.csv -o ${RESULTS_DIR}/power_usage.png
 python3 ${PLOT_SCRIPTS_DIR}/parse-results-chatbot-log.py ${RESULTS_DIR}/task_chat1_u0_perf.log
 python3 ${PLOT_SCRIPTS_DIR}/gantt_chart.py ${RESULTS_DIR}
 
 
-    
 # Remove csv files
 # sudo rm ${RESULTS_DIR}/cpu_usage.log
 # sudo rm ${RESULTS_DIR}/memory-bw.csv
