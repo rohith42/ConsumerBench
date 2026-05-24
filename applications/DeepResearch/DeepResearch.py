@@ -13,6 +13,7 @@ import src.utils as utils
 import src.globals as globals
 from inference_backends.Llamacpp import LlamaCpp
 from inference_backends.Vllm import Vllm
+from inference_backends.TGSLlamaCpp import TGSLlamaCpp
 
 class DeepResearch(Application):
     def __init__(self):
@@ -32,6 +33,14 @@ class DeepResearch(Application):
             self.backend = Vllm()
             vllm_path = kwargs.get('vllm_path', self.get_default_config()['vllm_path'])
             self.backend.launch_backend(api_port=api_port, model=model, device=device, vllm_path=vllm_path)
+        elif backend_type == 'tgs-llamacpp':
+            self.backend = TGSLlamaCpp()
+            self.backend.launch_backend(
+                api_port=api_port,
+                priority=kwargs.get('tgs_priority', 'high'),
+                tgs_path=kwargs.get('tgs_path', self.get_default_config()['tgs_path']),
+                model=kwargs.get('tgs_model'),
+            )
         else:
             self.backend = LlamaCpp()
             llamacpp_path = kwargs.get('llamacpp_path', self.get_default_config()['llamacpp_path'])
@@ -45,7 +54,7 @@ class DeepResearch(Application):
         print("DeepResearch cleanup")
         api_port = kwargs.get('api_port', self.get_default_config()['api_port'])
 
-        self.backend.cleanup_backend(api_port=api_port)
+        self.backend.cleanup_backend(api_port=api_port, priority=kwargs.get('tgs_priority', 'high'))
         return {"status": "cleanup_complete"}
 
     def run_application(self, *args, **kwargs):
@@ -83,6 +92,7 @@ class DeepResearch(Application):
             "llamacpp_path": f"{repo_dir}/inference_backends/llama.cpp",
             "client_model": f"openai/meta-llama/Llama-3.2-3B-Instruct",
             "backend": "llamacpp",
-            "vllm_path": f"{repo_dir}/inference_backends/vllm"
+            "vllm_path": f"{repo_dir}/inference_backends/vllm",
+            "tgs_path": "/local1/rohithl/TGS",
         }
     
