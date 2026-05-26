@@ -15,6 +15,8 @@ from inference_backends.Llamacpp import LlamaCpp
 from inference_backends.Vllm import Vllm
 from inference_backends.TGSLlamaCpp import TGSLlamaCpp
 
+TGS_PATH = "/local1/samarjit/workspace/TGS"
+
 class DeepResearch(Application):
     def __init__(self):
         super().__init__()
@@ -93,6 +95,6 @@ class DeepResearch(Application):
             "client_model": f"openai/meta-llama/Llama-3.2-3B-Instruct",
             "backend": "llamacpp",
             "vllm_path": f"{repo_dir}/inference_backends/vllm",
-            "tgs_path": "/local1/rohithl/TGS",
+            "tgs_path": TGS_PATH,
         }
     

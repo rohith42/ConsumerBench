@@ -11,6 +11,8 @@ import json
 repo_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(repo_dir)
 
+TGS_PATH = "/local1/samarjit/workspace/TGS"
+
 from applications.application import Application
 import src.utils as utils
 import src.globals as globals
@@ -164,6 +166,6 @@ class Chatbot(Application):
             "dataset": f"lmsys/lmsys-chat-1m",
             "backend": "llamacpp",
             "vllm_path": f"{repo_dir}/inference_backends/vllm",
-            "tgs_path": "/local1/rohithl/TGS",
+            "tgs_path": TGS_PATH,
         }
     

@@ -8,6 +8,7 @@ repo_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(repo_dir)
 
 import src.globals as globals
+TGS_PATH = f"/local1/samarjit/workspace/TGS"
 
 
 class TGSLlamaCpp:
@@ -33,12 +34,13 @@ class TGSLlamaCpp:
         api_port = int(kwargs.get('api_port', 8080))
         priority = kwargs.get('priority', 'high')
         assert priority in ('high', 'low'), f"priority must be high|low, got {priority}"
-        tgs_path = kwargs.get('tgs_path', '/local1/rohithl/TGS')
+        tgs_path = kwargs.get('tgs_path', TGS_PATH)
         model = kwargs.get('model')
 
         cuda_visible = os.environ.get('CUDA_VISIBLE_DEVICES', '0').strip()
         if not cuda_visible:
             raise RuntimeError("CUDA_VISIBLE_DEVICES is set but empty; cannot pick a GPU for TGS")
+        print(f"CUDA_VISIBLE_DEVICES={cuda_visible} for TGS backend")
         gpu_id = cuda_visible.split(',')[0].strip()
 
         ngl = kwargs.get('ngl', 99)
