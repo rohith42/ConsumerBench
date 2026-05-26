@@ -12,7 +12,7 @@ import json
 repo_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(repo_dir)
 
-TGS_PATH = "/local1/samarjit/workspace/TGS"
+TGS_PATH = os.getenv('TGS_PATH', "/local1/rohithl/TGS")
 TGS_RATE_MULTIPLIER_PATH = os.path.join(TGS_PATH, "gsharing", "tpot_multiplier.txt")
 TGS_RATE_MULTIPLIER_UPDATE_EVERY = 8
 

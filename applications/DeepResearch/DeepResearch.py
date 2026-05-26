@@ -15,7 +15,7 @@ from inference_backends.Llamacpp import LlamaCpp
 from inference_backends.Vllm import Vllm
 from inference_backends.TGSLlamaCpp import TGSLlamaCpp
 
-TGS_PATH = "/local1/samarjit/workspace/TGS"
+TGS_PATH = os.getenv('TGS_PATH')
 
 class DeepResearch(Application):
     def __init__(self):

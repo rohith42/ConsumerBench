@@ -8,7 +8,7 @@ repo_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(repo_dir)
 
 import src.globals as globals
-TGS_PATH = f"/local1/samarjit/workspace/TGS"
+TGS_PATH = os.getenv('TGS_PATH')
 
 
 class TGSLlamaCpp:
