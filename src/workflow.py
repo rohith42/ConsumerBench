@@ -1,3 +1,4 @@
+import copy
 from collections import deque
 import yaml
 import sys
@@ -55,7 +56,6 @@ class Workflow:
     def register_application(self, application_name: str, application: Application):
         """Register an application instance with the workflow"""
         self.applications[application_name] = application
-        application.load_dataset(yaml_file=self.yaml_file, mcp_trace_json=self.mcp_trace_json)
 
     def load_workflow_unit_config(self):
         """Load workflow unit configuration from YAML"""
@@ -110,10 +110,16 @@ class Workflow:
     def _generate_application_task_group(self, task_id: str, app_type: str, node_config: dict):
         """Generate a task group using an Application instance"""
         task = Task(task_id=task_id, task_type="ephemeral", app_type=app_type)
-        
-        # Get the registered application
-        application = self.applications[app_type]
-        
+
+        # Deepcopy the base application so each workflow unit gets its own instance
+        # (and its own prompt list), even when multiple units share the same app type.
+        application = copy.deepcopy(self.applications[app_type])
+        application.load_dataset(
+            yaml_file=self.yaml_file,
+            mcp_trace_json=self.mcp_trace_json,
+            dataset=node_config.get('dataset'),
+        )
+
         # Update application config with YAML config
         application.add_config(node_config)
         

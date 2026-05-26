@@ -1,0 +1,22 @@
+chat1:
+    num_requests: 20
+    device: gpu
+    type: Chatbot
+    backend: tgs-llamacpp
+    tgs_priority: high
+    api_port: 8080
+
+deep1:
+    num_requests: 12
+    device: gpu
+    type: Chatbot
+    backend: tgs-llamacpp
+    tgs_priority: high
+    api_port: 8081
+    dataset: applications/Chatbot/deep_research_workload
+
+workflows:
+    chat:
+        uses: chat1
+    deep:
+        uses: deep1

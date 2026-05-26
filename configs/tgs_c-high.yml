@@ -1,0 +1,11 @@
+chat1:
+    num_requests: 20
+    device: gpu
+    type: Chatbot
+    backend: tgs-llamacpp
+    tgs_priority: high
+    api_port: 8080
+
+workflows:
+    chat:
+        uses: chat1
