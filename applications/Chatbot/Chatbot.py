@@ -4,6 +4,7 @@ from typing import Any, Dict
 import sys
 import os
 from datasets import load_dataset
+import glob
 import subprocess
 import requests
 import json
@@ -68,9 +69,33 @@ class Chatbot(Application):
         model = kwargs.get('model', self.get_default_config()['model'])
 
         chatbot_prompt = self.chatbot_prompts.pop(0)
-        chatbot_prompts = [chatbot_prompt]
 
-        api_url = f"http://127.0.0.1:{api_port}/v1/completions"
+        if isinstance(chatbot_prompt, dict) and "messages" in chatbot_prompt:
+            api_url = f"http://127.0.0.1:{api_port}/v1/chat/completions"
+            params = chatbot_prompt.get("parameters", {})
+            payload = {
+                "model": model,
+                "messages": chatbot_prompt["messages"],
+                "temperature": params.get("temperature", 0.0),
+                "stream": True,
+                "stream_options": {"include_usage": True},
+            }
+            if params.get("stop"):
+                payload["stop"] = params["stop"]
+            if params.get("max_tokens") is not None:
+                payload["max_tokens"] = params["max_tokens"]
+        else:
+            api_url = f"http://127.0.0.1:{api_port}/v1/completions"
+            payload = {
+                "model": model,
+                "prompt": chatbot_prompt,
+                "max_tokens": 256,
+                "temperature": 0,
+                "top_p": 0.9,
+                "seed": 141293,
+                "stream": True,
+                "stream_options": {"include_usage": True},
+            }
 
         ttft = None
         token_count = None
@@ -78,54 +103,43 @@ class Chatbot(Application):
 
         start_time = time.time()
 
-        for prompt in chatbot_prompts:
-            payload = {
-                "model": model,
-                "prompt": prompt,
-                "max_tokens": 256,
-                "temperature": 0,
-                "top_p": 0.9,
-                "seed": 141293,
-                "stream": True,
-                "stream_options": {"include_usage": True}
-            }
-            headers = {
-                "Content-Type": "application/json"
-            }
+        headers = {
+            "Content-Type": "application/json"
+        }
 
-            try:
-                with requests.post(api_url, json=payload, headers=headers, stream=True) as response:
-                    if response.status_code != 200:
-                        print("HTTP Error:", response.status_code, response.text)
-                        return
+        try:
+            with requests.post(api_url, json=payload, headers=headers, stream=True) as response:
+                if response.status_code != 200:
+                    print("HTTP Error:", response.status_code, response.text)
+                    return
 
-                    for line in response.iter_lines(decode_unicode=True):
-                        if line:
-                            current_time = time.time()
-                            if ttft is None:
-                                ttft = current_time - start_time
-                                first_token_time = current_time
-                                print(f"Time to first token: {ttft:.4f} seconds")
+                for line in response.iter_lines(decode_unicode=True):
+                    if line:
+                        current_time = time.time()
+                        if ttft is None:
+                            ttft = current_time - start_time
+                            first_token_time = current_time
+                            print(f"Time to first token: {ttft:.4f} seconds")
 
-                            try:
-                                clean_line = line.strip().replace("data: ", "")
-                                if clean_line == "[DONE]":
-                                    break
+                        try:
+                            clean_line = line.strip().replace("data: ", "")
+                            if clean_line == "[DONE]":
+                                break
 
-                                data = json.loads(clean_line)
+                            data = json.loads(clean_line)
 
-                                # Capture usage from any chunk that has it (null-safe).
-                                # vLLM sends usage in a separate final chunk after finish_reason;
-                                # llamacpp includes it in the finish_reason chunk.
-                                usage = data.get("usage") or {}
-                                if usage.get("completion_tokens") is not None:
-                                    token_count = usage["completion_tokens"]
+                            # Capture usage from any chunk that has it (null-safe).
+                            # vLLM sends usage in a separate final chunk after finish_reason;
+                            # llamacpp includes it in the finish_reason chunk.
+                            usage = data.get("usage") or {}
+                            if usage.get("completion_tokens") is not None:
+                                token_count = usage["completion_tokens"]
 
-                            except json.JSONDecodeError:
-                                continue
+                        except json.JSONDecodeError:
+                            continue
 
-            except Exception as e:
-                print("Request failed:", e)
+        except Exception as e:
+            print("Request failed:", e)
 
         end_time = time.time()
         print(f"Total time: {end_time - start_time:.4f} seconds")
@@ -140,6 +154,9 @@ class Chatbot(Application):
     def load_dataset(self, *args, **kwargs):
         """Load the chatbot dataset"""
         mcp_trace = kwargs.get('mcp_trace_json', None)
+        dataset_source = kwargs.get('dataset', None) or self.get_default_config()['dataset']
+        resolved = dataset_source if os.path.isabs(dataset_source) else os.path.join(repo_dir, dataset_source)
+
         if mcp_trace is not None:
             trace_json = json.loads(open(mcp_trace, 'r').read())
             for section_name, section_data in trace_json.items():
@@ -148,8 +165,16 @@ class Chatbot(Application):
                         prompt = call_data.get('prompt', None)
                         if prompt is not None:
                             self.chatbot_prompts.append(prompt)
+        elif os.path.isdir(resolved):
+            for jf in sorted(glob.glob(os.path.join(resolved, "request_*.json"))):
+                with open(jf) as f:
+                    data = json.load(f)
+                self.chatbot_prompts.append({
+                    "messages": data.get("messages", []),
+                    "parameters": data.get("parameters", {}),
+                })
         else:
-            ds_textgen = load_dataset("lmsys/lmsys-chat-1m")
+            ds_textgen = load_dataset(dataset_source)
             ds_textgen = ds_textgen["train"]
             ds_textgen = ds_textgen.shuffle(seed=42)
             ds_textgen = ds_textgen.select(range(0, 100))

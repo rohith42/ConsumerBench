@@ -137,7 +137,7 @@ fi
 
 
 # # Create plots
-python3 ${PLOT_SCRIPTS_DIR}/parse-results-chatbot-log.py ${RESULTS_DIR}/task_chat1_u0_perf.log
+python3 ${PLOT_SCRIPTS_DIR}/parse-results-chatbot-log.py ${RESULTS_DIR}
 python3 ${PLOT_SCRIPTS_DIR}/gantt_chart.py ${RESULTS_DIR}
 
 

@@ -240,10 +240,22 @@ def create_plot(metrics_dicts, base_filename):
     plt.close()
 
 if __name__ == "__main__":
-    # Check if a file path was provided as command line argument
-    if len(sys.argv) > 1:
-        file_path = sys.argv[1]
-        parse_results_from_file(file_path)
-    else:
-        print("Usage: python script_name.py <path_to_results_file>")
-        print("Example: python parse_results.py log_file.txt")
+    if len(sys.argv) < 2:
+        print("Usage: python parse-results-chatbot-log.py <results_dir>")
+        sys.exit(1)
+
+    import glob
+    import os
+
+    results_dir = sys.argv[1]
+    if not os.path.isdir(results_dir):
+        print(f"Error: '{results_dir}' is not a directory.")
+        sys.exit(1)
+
+    log_files = sorted(glob.glob(os.path.join(results_dir, "task_*_perf.log")))
+    if not log_files:
+        print(f"No task_*_perf.log files found in '{results_dir}'.")
+        sys.exit(1)
+
+    for log_file in log_files:
+        parse_results_from_file(log_file)

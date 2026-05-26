@@ -1,0 +1,10 @@
+dr_replay:
+    model: models/Llama-3.2-3B-Instruct-GGUF/Llama-3.2-3B-Instruct-f16.gguf
+    num_requests: 12
+    device: gpu
+    type: Chatbot
+    dataset: applications/Chatbot/deep_research_workload
+
+workflows:
+    dr_workload:
+        uses: dr_replay
