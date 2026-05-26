@@ -12,6 +12,7 @@ deep1:
     type: Chatbot
     backend: tgs-llamacpp
     tgs_priority: low
+    tgs_slo: 1.0
     api_port: 8081
     dataset: applications/Chatbot/deep_research_workload
 

@@ -13,6 +13,8 @@ repo_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 sys.path.append(repo_dir)
 
 TGS_PATH = "/local1/samarjit/workspace/TGS"
+TGS_RATE_MULTIPLIER_PATH = os.path.join(TGS_PATH, "gsharing", "tpot_multiplier.txt")
+TGS_RATE_MULTIPLIER_UPDATE_EVERY = 8
 
 from applications.application import Application
 import src.utils as utils
@@ -26,7 +28,77 @@ class Chatbot(Application):
         super().__init__()
         self.chatbot_prompts = []
         self.backend = None
+        self.tgs_slo_seconds = None
+        self.enable_tgs_multiplier_updates = False
 
+    @staticmethod
+    def _write_rate_multiplier(multiplier: float, tpot: float, slo_seconds: float) -> None:
+        output_dir = os.path.dirname(TGS_RATE_MULTIPLIER_PATH)
+        os.makedirs(output_dir, exist_ok=True)
+
+        temp_path = f"{TGS_RATE_MULTIPLIER_PATH}.tmp"
+        payload = f"{multiplier:.8f}\n"
+        with open(temp_path, "w", encoding="utf-8") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_path, TGS_RATE_MULTIPLIER_PATH)
+
+        # print(
+        #     f"Wrote TGS rate multiplier {multiplier:.6f} from tpot={tpot:.6f}s "
+        #     f"(slo={slo_seconds:.6f}s) to {TGS_RATE_MULTIPLIER_PATH}"
+        # )
+
+    @staticmethod
+    def _extract_stream_text(data: Dict[str, Any]) -> str:
+        choices = data.get("choices") or []
+        for choice in choices:
+            delta = choice.get("delta") or {}
+            message = choice.get("message") or {}
+            text = delta.get("content") or choice.get("text") or message.get("content")
+            if text:
+                return text
+        return ""
+
+    def _maybe_update_rate_multiplier(
+        self,
+        current_time: float,
+        first_token_time: float,
+        token_count: int,
+        estimated_token_count: int,
+        last_multiplier_update_count: int,
+    ) -> None:
+        if not self.enable_tgs_multiplier_updates or first_token_time is None:
+            return last_multiplier_update_count
+
+        observed_tokens = token_count if token_count is not None else estimated_token_count
+        if observed_tokens <= 0:
+            return last_multiplier_update_count
+
+        observed_tpot = (current_time - first_token_time) / max(1, observed_tokens)
+        if observed_tpot <= 0:
+            return last_multiplier_update_count
+
+        multiplier = self.tgs_slo_seconds / observed_tpot
+        should_update = (
+            last_multiplier_update_count == 0 or
+            token_count is not None or
+            observed_tokens - last_multiplier_update_count >= TGS_RATE_MULTIPLIER_UPDATE_EVERY
+        )
+        if not should_update:
+            return last_multiplier_update_count
+
+        # print(
+        #     f"TGS update tokens={token_count} estimated_tokens={estimated_token_count} "
+        #     f"elapsed={current_time - first_token_time:.6f}s observed_tpot={observed_tpot:.6f}s "
+        #     f"multiplier={multiplier:.6f}"
+        # )
+        try:
+            self._write_rate_multiplier(multiplier, observed_tpot, self.tgs_slo_seconds)
+            return observed_tokens
+        except Exception as exc:
+            print(f"Failed to write TGS rate multiplier file: {exc}")
+            return last_multiplier_update_count
     def run_setup(self, *args, **kwargs):
         print("Chatbot setup")
         api_port = kwargs.get('api_port', self.get_default_config()['api_port'])
@@ -34,6 +106,14 @@ class Chatbot(Application):
         device = kwargs.get('device', self.get_default_config()['device'])
         mps = kwargs.get('mps', self.get_default_config()['mps'])
         backend_type = kwargs.get('backend', self.get_default_config()['backend'])
+        if 'tgs_slo' in kwargs and kwargs.get('tgs_slo') is not None:
+            self.tgs_slo_seconds = float(kwargs.get('tgs_slo'))
+            self.enable_tgs_multiplier_updates = True
+            print(f"TGS multiplier updates enabled with slo={self.tgs_slo_seconds:.6f}s")
+        else:
+            self.tgs_slo_seconds = None
+            self.enable_tgs_multiplier_updates = False
+            print("TGS multiplier updates disabled (no tgs_slo provided)")
 
         if backend_type == 'vllm':
             self.backend = Vllm()
@@ -100,6 +180,8 @@ class Chatbot(Application):
         ttft = None
         token_count = None
         first_token_time = None
+        estimated_text_chars = 0
+        last_multiplier_update_count = 0
 
         start_time = time.time()
 
@@ -135,6 +217,19 @@ class Chatbot(Application):
                             if usage.get("completion_tokens") is not None:
                                 token_count = usage["completion_tokens"]
 
+                            stream_text = self._extract_stream_text(data)
+                            if stream_text:
+                                estimated_text_chars += len(stream_text)
+
+                            estimated_token_count = max(1, estimated_text_chars // 4) if estimated_text_chars > 0 else 0
+                            last_multiplier_update_count = self._maybe_update_rate_multiplier(
+                                current_time,
+                                first_token_time,
+                                token_count,
+                                estimated_token_count,
+                                last_multiplier_update_count,
+                            )
+
                         except json.JSONDecodeError:
                             continue
 
@@ -142,6 +237,14 @@ class Chatbot(Application):
             print("Request failed:", e)
 
         end_time = time.time()
+        final_estimated_token_count = max(1, estimated_text_chars // 4) if estimated_text_chars > 0 else 0
+        self._maybe_update_rate_multiplier(
+            end_time,
+            first_token_time,
+            token_count,
+            final_estimated_token_count,
+            last_multiplier_update_count,
+        )
         print(f"Total time: {end_time - start_time:.4f} seconds")
         print(f"Completion tokens: {token_count}")
 
