@@ -14,8 +14,11 @@ sys.path.append(repo_dir)
 
 TGS_PATH = os.getenv('TGS_PATH', "/local1/rohithl/TGS")
 TGS_RATE_MULTIPLIER_PATH = os.path.join(TGS_PATH, "gsharing", "tpot_multiplier.txt")
-TGS_RATE_MULTIPLIER_UPDATE_EVERY = 5
+TGS_RATE_MULTIPLIER_UPDATE_EVERY = 1
+TGS_RATE_MULTIPLIER_PRINT_EVERY = 20
 TGS_RATE_MULTIPLIER_DISABLED = -1.0
+# Smoothing factor in [0,1]: 0 -> use latest TPOT only, 1 -> use cumulative TPOT only
+MULTIPLIER_SMOOTHING_FACTOR = 0.2
 
 from applications.application import Application
 import src.utils as utils
@@ -45,7 +48,8 @@ class Chatbot(Application):
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(temp_path, TGS_RATE_MULTIPLIER_PATH)
-        if self._line_count % 20 == 0:
+        print_every = TGS_RATE_MULTIPLIER_PRINT_EVERY * TGS_RATE_MULTIPLIER_UPDATE_EVERY
+        if self._line_count % print_every == 0:
             print(
                 f"Wrote TGS rate multiplier {multiplier:.6f} from tpot={tpot:.6f}s "
                 f"(slo={slo_seconds:.6f}s) to {TGS_RATE_MULTIPLIER_PATH}"
@@ -109,7 +113,24 @@ class Chatbot(Application):
         if observed_tpot <= 0:
             return last_multiplier_update_count, last_multiplier_update_time
 
-        multiplier = self.tgs_slo_seconds / observed_tpot
+        # Recent multiplier based on the interval since last update (or first token)
+        recent_multiplier = self.tgs_slo_seconds / observed_tpot
+
+        # Cumulative multiplier since first token (more stable)
+        cumulative_multiplier = recent_multiplier
+        try:
+            cumulative_tokens = observed_tokens
+            if first_token_time is not None and cumulative_tokens > 0:
+                cumulative_time = current_time - first_token_time
+                cumulative_tpot = cumulative_time / max(1, cumulative_tokens)
+                if cumulative_tpot > 0:
+                    cumulative_multiplier = self.tgs_slo_seconds / cumulative_tpot
+        except Exception:
+            cumulative_multiplier = recent_multiplier
+
+        # Blend according to smoothing factor: 0->recent only, 1->cumulative only
+        s = MULTIPLIER_SMOOTHING_FACTOR
+        multiplier = s * cumulative_multiplier + (1.0 - s) * recent_multiplier
         should_update = (
             last_multiplier_update_count == 0 or
             token_count is not None or
