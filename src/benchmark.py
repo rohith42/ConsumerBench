@@ -24,6 +24,11 @@ global_vars = {}
 model_refcount_lock = threading.Lock()
 
 
+def summarize_result(value, max_items: int = 3):
+    # just print data type of what "value" is. If it's a list or dict, also print the length. Don't print the actual contents of the list or dict to avoid overwhelming the logs.
+    return (str(value)[:100] + '...')
+
+
 class ExecutionNode:
     """Represents a specific execution node that contains a function pointer and arguments"""
     def __init__(self, 
@@ -198,9 +203,9 @@ class Task:
             print(f"Node {node.node_id}:")
             print(f"  Execution time: {node.execution_time:.4f} seconds")
             print(f"  Success: {node.success}")
-            
-        print(f"\nTask {self.task_id} results:")
-        print(self.results)
+
+        print(f"\nTask {self.task_id} results summary:")
+        print(f"  {summarize_result(self.results)}")
     
     def write_results(self):
         """Write task execution results to a file"""
@@ -320,7 +325,7 @@ class DAGScheduler:
                 if node_id in self.node_id_to_task:
                     task = self.node_id_to_task[node_id]
                     task.results.append(result)
-                    print(f"Node {node_id} completed with result: {result}")
+                    print(f"Node {node_id} completed with result: {summarize_result(result)}")
                 
         
         self.total_time = time.time() - start_time
@@ -428,7 +433,7 @@ class DAGScheduler:
                                         task.write_results()
                                         pending_tasks.remove(task.task_id)
                                     
-                                print(f"Node {completed_node_id} completed with result: {result}")
+                                print(f"Node {completed_node_id} completed with result: {summarize_result(result)}")
                                 
                                 # Check for new executable nodes
                                 new_executable = [node_id for node_id in self.dag.nodes 
